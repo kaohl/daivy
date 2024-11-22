@@ -116,13 +116,13 @@ class IvyCache:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--cache", required = True, help = "Ivy cache directory")
+    parser.add_argument("-c", "--cache", required = False, help = "Ivy cache directory")
     parser.add_argument("-r", "--recursive", action="store_true", required = False, help = "Whether to traverse down recursively")
     parser.add_argument("-m", "--module", required = False, help = "Read `ivy.xml` module from cache by name")
     parser.add_argument("-f", "--file", required = False, help = "Read `ivy.xml` file")
 
     args  = parser.parse_args()
-    cache = IvyCache(args.cache)
+    cache = IvyCache(args.cache) if args.cache else IvyCache()
 
     module = None
     if args.file:
