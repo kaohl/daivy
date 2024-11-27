@@ -36,7 +36,6 @@ class MasterConfig:
         self._conf_xml   = conf_xml
 
         if not 'name' in conf_xml.attrib:
-            print("attribs", conf_xml.attrib)
             raise ValueError('Missing reqired name attribute in conf xml')
 
         self.name        = MasterConfig._get_attribute(conf_xml, 'name')
@@ -69,11 +68,9 @@ class MasterConfigs:
         return self._configs[name]
 
     def from_xml(configurations_xml):
-        print("Configurations xml", configurations_xml)
         configs = {}
         if configurations_xml is not None:
             for child in configurations_xml:
-                print("Child", child)
                 if child.tag == 'conf':
                     config = MasterConfig(child)
                     configs[config.name] = config
@@ -91,6 +88,12 @@ class ID:
         self.org = org
         self.mod = mod
         self.rev = rev
+
+    def key(self):
+        return (self.org, self.mod, self.rev)
+
+    def coord(self):
+        return ":".join(self.key())
 
     def from_coord(coord):
         parts = coord.split(":")
@@ -197,16 +200,22 @@ class Cache:
         configs = MasterConfigs.from_xml(conf)
         return Module(id, configs, dependencies)
 
-    def print_dependencies(self, module, visited = set(), indent = ''):
-        org = module.id.org
-        mod = module.id.mod
-        rev = module.id.rev
-        key = (org, mod, rev)
-        # print(indent + org, mod, rev)
+    def print_dependencies(self, module, verbose = False, visited = set(), indent = ''):
+        visited.add(module.id.coord())
+
+        if verbose:
+            print(indent + module.id.coord())
+
         for dep in module.dependencies():
-            dep_m = self.resolve_module(dep.id)
-            visited.add(":".join([org, mod, rev]))
-            self.print_dependencies(dep_m, visited, indent + ' '*2)
+            if not dep.id.coord() in visited:
+                self.print_dependencies(
+                    self.resolve_module(dep.id),
+                    verbose,
+                    visited,
+                    indent + ' '*2
+                )
+            elif verbose:
+                print((indent + ' '*2) + "skip visited", dep.id.coord())
 
         if indent == '':
             print("Dependencies")
@@ -219,6 +228,7 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--recursive", required = False, action = "store_true", help = "Whether to traverse down recursively")
     parser.add_argument("-m", "--module"   , required = False, help = "Read `ivy.xml` module from cache by name")
     parser.add_argument("-f", "--file"     , required = False, help = "Read `ivy.xml` file")
+    parser.add_argument("-v", "--verbose"  , required = False, action = "store_true", help = "Print extra information to stdout where applicable.")
 
     args  = parser.parse_args()
     cache = Cache(args.cache) if args.cache else Cache()
@@ -231,5 +241,5 @@ if __name__ == "__main__":
     else:
         pass
 
-    cache.print_dependencies(module)
+    cache.print_dependencies(module, args.verbose)
 
