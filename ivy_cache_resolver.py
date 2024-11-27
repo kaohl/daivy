@@ -136,6 +136,7 @@ class Cache:
     def __init__(self, cachepath = 'ivy-cache'):
         self._cachepath = cachepath
         self._modules   = dict()
+        self._pending   = set()
 
     def resolve_ivy_xml_from_coord(self, coord):
         return self.resolve_ivy_xml(ID.from_coord(coord))
@@ -163,12 +164,15 @@ class Cache:
         return ivy_xml
 
     def resolve_module(self, id, recurse = False):
-        if not id in self._modules:
-            self._modules[id] = self._load_ivy_xml(
+        coord = id.coord()
+        if not coord in self._modules:
+            self._pending.add(coord)
+            self._modules[coord] = self._load_ivy_xml(
                 self.resolve_ivy_xml(id),
                 recurse
             )
-        return self._modules[id]
+            self._pending.remove(coord)
+        return self._modules[coord]
 
     # Intended for standalone files.
     # Does not cache and register the loaded module.
@@ -200,7 +204,7 @@ class Cache:
                 d_id = ID(d_org, d_name, d_rev)
                 dependencies.append(Dependency(d_id, d_conf))
 
-                if recurse:
+                if recurse and not d_id.coord() in self._pending:
                     self.resolve_module(d_id, recurse)
 
         configs = MasterConfigs.from_xml(conf)
