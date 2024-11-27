@@ -85,15 +85,21 @@ class MasterConfigs:
 
 class ID:
     def __init__(self, org, mod, rev):
-        self.org = org
-        self.mod = mod
-        self.rev = rev
+        self.org    = org
+        self.mod    = mod
+        self.rev    = rev
+        self._key   = None
+        self._coord = None
 
     def key(self):
-        return (self.org, self.mod, self.rev)
+        if self._key is None:
+            self._key = (self.org, self.mod, self.rev)
+        return self._key
 
     def coord(self):
-        return ":".join(self.key())
+        if self._coord is None:
+            self._coord = ":".join(self.key())
+        return self._coord
 
     def from_coord(coord):
         parts = coord.split(":")
