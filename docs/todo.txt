@@ -1,0 +1,146 @@
+
+General
+- [x] Create a zip/jar diff utility that can check for missing/extra files between
+      locally built jars vs. ivy provided jars.
+      - See 'cmpzip.py'
+
+Batik 1.16
+- [x] Search batik source modules for excluded source code to avoid compilation errors
+  - [x] batik-anim
+  - [x] batik-awt-util
+  - [x] batik-bridge
+    - Depends on org.mozilla:rhino
+  - [x] batik-codec
+  - [x] batik-constants
+  - [x] batik-css
+  - [x] batik-dom
+  - [x] batik-ext
+  - [x] batik-extension
+  - [x] batik-gui-util
+  - [x] batik-gvt
+  - [x] batik-i18n
+  - [x] batik-parser
+  - [x] batik-rasterizer (app)
+    - Main-Class: org.apache.batik.apps.rasterizer.Main
+    - Resources: src/main/resources
+  - [x] batik-rasterizer-ext (app)
+    - Main-Class: org.apache.batik.apps.rasterizer.Main
+    - No resources... (Is this the only difference between this and batik-rasterizer?)
+    - classpathPrefix: lib/
+  - [x] batik-script
+    - Depends on rhino and jython (org.python.jython)
+    - Exclude **/jacl/* (depends on tcl.lang)
+  - [x] batik-shared-resources
+    - Resources: src/main/resources
+      - Includes: LICENSE, NOTICE
+      - Target path: META-INF
+    - NOTE: All(?) batik artifacts depends on this one.
+  - [x] batik-slideshow (app)
+    - Main-Class: org.apache.batik.apps.slideshow.Main
+    - classpathPrefix: lib/
+  - [x] batik-squiggle (app)
+    - Main-Class: org.apache.batik.apps.svgbrowser.Main
+    - classpathPrefix: lib/
+  - [x] batik-squiggle-ext (app)
+    - Main-Class: org.apache.batik.apps.svgbrowser.Main
+    - No classpathPrefix? (what is the difference between this and batik-squiggle?)
+  - [x] batik-svgbrowser
+    - Resources: src/main/resources
+  - [x] batik-svg-dom
+  - [x] batik-svggen
+  - [x] batik-svgpp (app)
+    - Main-Class: org.apache.batik.apps.svgpp.Main
+    - classpathPrefix: lib/
+  - [x] batik-svgrasterizer
+  - [x] batik-swing
+  - [x] batik-test (Batik Test Harness)
+    - Exclude: **/MemoryLeakTest*
+  - [x] batik-test-old
+    - Depends on batik-all, ...
+    - Depends on rhino
+    - Depends on fop-transcoder-allinone
+    - Depends on test scope of other test projects
+    - Resources: ../test-resources
+    - maven-surefire-plugin
+      - Include **/*TestCase.java
+      - redirectTestOutputToFile=true
+      - workingDirectory=..
+  - [x] batik-test-svg
+    - Looks like a library?
+  - [x] batik-test-swing
+    - Looks like a library?
+  - [x] batik-transcoder
+  - [x] batik-ttf2svg (app)
+    - Main-Class: org.apache.batik.apps.ttf2svg.Main
+    - classpathPrefix: lib/
+  - [x] batik-util
+    - maven-surefire-plugin
+      - Include **/*TestCase.java
+      - Include **/*TestCases.java
+      - redirectTestOutputToFile=true
+    - maven-jar-plugin
+      - goal: test-jar  (?)
+  - [x] batik-xml
+  - [ ] Exclude sources already at extraction from batik source distribution
+      - batik-script
+        - **/jacl/*
+      - WARNING
+         - There is no reason to keep these around and be force to exclude them everywhere when used.
+         - Also, the eclipse workspace will not fully compile which may prevent refactoring.
+- [x] Investigate optional dependencies on rhino and jython (dacapo does not include them)
+  - batik-bridge
+  - batik-script
+  - batik-test-old
+
+.Main
+..Extract
+- [x] Copy <batik-module>/src into <project>/src
+..Compile
+- [x] Compile <project>/src
+- [x] Gather list of dependencies
+- [ ] Resolve dependencies via ivy or via local build cache
+..Package
+- [x] Investigate assembly of jar file (NOTICE, LICENSE, META-INF/{MANIFEST.MF,imports/,services/})
+  - All seems to be included via 'src/main/resources'
+- [x] Include 'src/main/resources'
+- [x] Exclude files from source tree resources
+
+.Test
+..Extract
+  - [ ] Copy test-resources into <project>/test-resources
+  - [ ] Copy test code
+    - Can source and resource trees be merged?
+..Compile
+  - How to handle dependency on locally built batik jar?
+..Package
+  - One or multiple test suite artifacts?
+..Run
+  - How to execute tests?
+    - Ant?
+    - Maven?
+    - Command-line?
+
+- [ ] Investigate running junit tests from command-line:
+      java\
+        -cp dist/:<additional test class dependencies>:hamcrest-core...:junit...\
+        org.junit.runner.JUnitCore\
+        <fully qualified test class>
+
+      - [ ] Inject test dependencies
+      - [ ] Inject correct version of junit
+
+- [ ] Investigate running jacococli
+  - See README-jacoco.txt
+       
+
+.Refactor
+- [ ] Generate eclipse configuration for refactoring framework
+  - [ ] Extract source archives into workspace assets
+  - [ ] Extract binary archives into workspace assets
+  - [ ] Generate workspace configuration file
+
+Batik benchmark
+- [ ] Build dacapo harness
+- [ ] Build batik harness
+- [ ] Assemble benchmark jar
+
