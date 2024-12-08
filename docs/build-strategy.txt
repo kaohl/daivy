@@ -1,0 +1,122 @@
+Project resources
+1. Create a new project directory in the 'projects' directory
+2. Copy source code and resources from existing source distribution into project directory
+3. Generate or write 'ivy.xml' to manage dependencies and configuration mappings
+4. Generate eclipse workspace configuration for project refactoring and transformation
+   by processing 'ivy.xml' files (starting at top-level benchmark projects).
+
+   Note: We don't need eclipse project mappings for refactoring.
+         Binary dependencies is enough, but we need to catch compilation and
+         runtime errors if we accidentally break the public API. For example,
+         if we rename a public type or method.
+
+   Note: A binary project blocks arbitrary source transformations of its direct
+         dependencies, but allows for refactoring as long as the public API is
+         intact.
+         - Take into account when computing variable projects options lists
+           for a project (benchmark)
+
+WARNING: Dacapo sometimes patches source distributions of benchmarked projects
+         including dependencies in 'pom.xml' files.
+         - Make sure that correct resources and dependencies are extracted
+
+Configuration management (conf names may differ between modules):
+- Source projects that we create must define "compile", "runtime", and "test"
+  master configurations and configuration mappings (e.g. benchmark projects)
+- Source projects that we replicate from a source distribution should reuse
+  the 'ivy.xml' file provided by ivy, and then we register which master
+  configurations that correspond to "compile", "runtime", and "test" in
+  those particular files so that we can resolve dependencies using correct
+  configurations with ivy.
+
+  Note: There is no standard for configuration names and configuration mapping.
+        A module can define arbitrary names for its master configurations.
+        If a module does not declare a configurations element, it is assumed to
+        have a single public master configuration named 'default'.
+
+Creating source projects (WARNING):
+  - If we create an alternative build for a project, such as batik-all, we
+    must preserve build configurations because modifications would break
+    configuration mappings in other projects that depends on batik-all.
+    - Alternative 0 (preferred):
+      - Replicate the original build and use our ivy wrapper as dependency manager
+    - Alternative 1 (alternative):
+      - Create a local separate version that is not confused with original batik-all
+        and use build properties to mutate dependency arcs across the dependency tree
+    - Alternative 2 (avoid):
+      - Patch 'ivy.xml' files...
+        - This is basically what we do anyway when using build property files
+          to override dependency arcs and generate a temporary 'ivy.xml', which
+          is much easier to handle than patching (see below)
+
+Recursive build:
+- Perform a depth-first scan (via 'ivy.xml' files) of the full dependency tree of
+  the specified top-level project, then perform a bottom-up (post-order) build of
+  each visited source project. A source project is only built if a patch is provided.
+  Ivy is used to resolve fallback binaries when transformed versions are not present.
+  - See details below
+
+Build project:
+1. Load dependencies from xml file
+2. Apply build configuration (build properties)
+   - If dependencies are modified, write the modified 'ivy.xml' to a
+     temporary file in the build context directory to override the original
+     'ivy.xml' for a particular build
+   - The reason for this is optional dependencies (build options)
+     - Conditional resources
+     - Conditional compilation of source code
+3. Recursive call to build each dependency
+   - We don't need to care about configurations at this step,
+     just consider all dependencies. Those that are irrelevant
+     will be ignored when collecting the compile classpath and
+     later also when collecting the runtime classpath.
+     * This strategy is required for arbitrary transformations of
+       transitive dependencies and the overhead does not matter in
+       the case of refactoring because there will be no actions at
+       all for a project unless it is built from source because a
+       patch is present in the build context directory.
+If source patch available:
+  1. Copy original source tree to a temporary directory
+  2. Apply patch to temporary copy of original source tree
+  3. Collect "compile" classpath using ivy and 'ivy.xml'
+     1. Resolve "compile" dependencies using original or modified
+        (temporary) 'ivy.xml'
+     2. For each found classpath entry, check if there exists a
+        locally built version of the artifact in the build cache
+        within the build context directory (names should match)
+        and override paths where required
+  4. Compile modified source tree with classpath
+  5. Copy resulting binary into build cache in build context directory
+Otherwise (no patch or binary; no build required):
+  1. Do nothing (Ivy wrapper will fallback on precompiled original binary.)
+     - For source projects we need to run the original build once to cache the original binary.
+Return;
+
+Project build properties:
+  Options:
+    - Allow build property files in the build context directory
+    - Allow specifying build configurations to opt in/out of optional dependencies
+      and therefore trigger conditional inclusion/exclusion of source code
+      - This must be handled on a case-by-case basis in source projects
+  Modifying/Patching dependency arcs:
+    - We can modify/replace
+      - specific dependency arcs via the project build property file
+      - all dependency arcs to a specific module across the whole dependency tree
+        using a global build property file
+
+Extract source code for refactoring
+1. Specify a build context directory
+2. Select a project
+3. Select which source projects should be variable (we can produce a list of choices based on which projects can be built from source)
+4. Run the export command for the project
+   - Traverse the project dependency graph
+   - Write source and binary archives and eclipse configuration into the build context directory
+     based on which projects are to be considered variable (see step 3)
+5. Exit
+
+Patch and build projects from source
+1. Specify a build context directory (holding patches and exported resources)
+2. Load information from the build context directory to build the project that was previously exported
+3. Write the resulting binary to the build cache in the build context directory
+4. Exit
+
