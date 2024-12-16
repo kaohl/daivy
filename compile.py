@@ -2,24 +2,26 @@
 
 import argparse
 import itertools
+from manifest import Manifest
 import os
-import pathlib
+from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import ivy_cache_resolver as ivy
+import tools
 
-def javac_fn(cwd, options_file, sources_file):
+def javac_fn(options_file, sources_file):
 
     with open(options_file, 'r') as f:
         print("Options")
         for line in f.readlines():
             print(line.strip())
 
-    #with open(sources_file, 'r') as f:
-    #    print("Sources")
-    #    for line in f.readlines():
-    #        print(line.strip())
+    with open(sources_file, 'r') as f:
+        print("Sources")
+        for line in f.readlines():
+            print(line.strip())
 
     cmd = " ".join([
         'echo pwd=`pwd`;',
@@ -27,9 +29,10 @@ def javac_fn(cwd, options_file, sources_file):
         "@" + options_file,
         "@" + sources_file
     ])
-    subprocess.run(cmd, shell = True, cwd=cwd)
+    print("Command", cmd)
+    subprocess.run(cmd, shell = True)
 
-def compile(cwd, options, source_sets):
+def compile(options, source_sets):
     with tempfile.NamedTemporaryFile(delete_on_close=False) as options_file:
         for (option, value) in options:
             options_file.write(bytes(option + " " + str(value) + os.linesep, encoding='utf-8'))
@@ -42,51 +45,55 @@ def compile(cwd, options, source_sets):
                         sources_file.write(bytes(str(s) + os.linesep, encoding='utf-8'))
             sources_file.close()
 
-            javac_fn(cwd, options_file.name, sources_file.name)
+            javac_fn(options_file.name, sources_file.name)
 
 class Files:
-    def __init__(self, context, src, include, exclude):
-        self._context = pathlib.Path(context)
-        self._src     = pathlib.Path(src)
+    def __init__(self, folder, include, exclude, options = {}):
+        self._src     = Path(folder)
         self._include = include or []
         self._exclude = exclude or []
+        self._verbose = options['verbose'] if 'verbose' in options else False
 
-    def include(context, src, include):
-        return Files(src, include, None)
+    def include(folder, include, options = {}):
+        return Files(folder, include, None, options)
 
-    def of(context, src, include, exclude):
-        return Files(context, src, include, exclude)
+    def exclude(folder, exclude, options = {}):
+        return Files(folder, ['*'], exclude, options)
+
+    def of(folder, include, exclude, options = {}):
+        return Files(folder, include, exclude, options)
 
     def match(self, path):
         if self._exclude is not None:
             for p in self._exclude:
                 if path.match(p):
-                    #print('Exclude', p, path)
+                    if self._verbose:
+                        print('Exclude', p, path)
                     return False
         if self._include is not None:
             for p in self._include:
                 if path.match(p):
-                    #print('Include', p, path)
+                    if self._verbose:
+                        print('Include', p, path)
                     return True
-        #print('Exclude (no pattern)', path)
+        if self._verbose:
+            print('Exclude (no pattern)', path)
         return False
 
     def __iter__(self):
         return (
-            (pathlib.Path(d).relative_to(self._context) / file for file in files if self.match(pathlib.Path(d).relative_to(self._context) / file))
-            for d, dirs, files in os.walk(self._context / self._src)
+            (Path(d) / file for file in files if self.match(Path(d).relative_to(self._src) / file))
+            for d, dirs, files in os.walk(self._src)
         )
 
 class Javac:
-    def __init__(self, context):
-        self._context     = pathlib.Path(context)
+    def __init__(self):
         self._classes     = None
         self._sources     = []
         self._classpath   = []
-        self._sourcepaths = []
 
     def classes(self, path):
-        self._classes = pathlib.Path(path)
+        self._classes = Path(path)
 
     def sources(self, sources):
         self._sources.extend(sources)
@@ -103,142 +110,265 @@ class Javac:
         if len(self._classpath) > 0:
             options.append(('-classpath', ':'.join(self._classpath)))
 
-        if len(self._sourcepaths) > 0:
-            options.append(('-sourcepath', ':'.join(self._sourcepaths)))
+        compile(options, self._sources)
 
-        compile(self._context, options, self._sources)
+class Config:
+    def __init__(self, id, context):
+        self.id      = id
+        self.context = context
+
+    # Return the file path for the patch file for specified artifact.
+    # If an artifact id is not specified, default is assumed.
+    def patch_file_path(self, id = None):
+        id = self.id if id is None else id
+        return self.context.path / ('-'.join([id.mod, id.rev]) + '.patch')
+
+class BuildContext:
+    def __init__(self, path):
+        self.path = Path(path)
+        self.dist = self.path / 'dist'
+
+        print("Using build context")
+        print("  path = " + str(self.path))
+        print("  dist = " + str(self.dist))
+
+    def config(self, id):
+        return Config(id, self)
 
 class Project:
-    def __init__(self, path):
-        self._path              = pathlib.Path(path)
+
+    # This variable will be set by the command line interface.
+    # The build context holds import/export resources.
+    _global_build_context = None
+
+    def __init__(self, path, id = None):
+        self.id                 = id
+        self.path               = Path(path)
         self._sources           = []
         self._resources         = []
         self._resources_copy_to = []
-        self._classpath_entries = []
-        self._manifest_text     = None
+        self._compile_classpath = []
+        self._runtime_classpath = [] # TODO: We don't seem to need the runtime classpath here if we add the manifest classpath in 'build.py'
+        self.manifest           = None
+        self.manifest_changes   = None
+        self.deployment         = None
 
-    def manifest(self, text):
-        self._manifest_text = text
+    def context(self):
+        return Project._global_build_context
 
-    def sources(self, src, include, exclude):
-        self._sources.append(Files.of(self._path, src, include, exclude))
+    def config(self):
+        if Project._global_build_context is None:
+            return None
+        return Project._global_build_context.config(self.id) if self.id else None
 
-    def resources(self, src, include, exclude):
-        self._resources.append(Files.of(self._path, src, include, exclude))
+    def artifact(self):
+        return '-'.join([self.id.mod, self.id.rev]) + '.jar'
 
-    def resources_copy_to(self, src, dst, include, exclude):
-        self._resources_copy_to.append((dst, Files.of(self._path, src, include, exclude)))
+    def sources(self, folder, include, exclude = [], options = {}):
+        self._sources.append(Files.of(folder, include, exclude, options))
 
-    def classpath(self, ids):
-        self._classpath_entries.extend(ids)
+    def resources(self, folder, include, exclude = [], options = {}):
+        self._resources.append(Files.of(folder, include, exclude, options))
 
-    def _assemble_classpath(self, context_path_prefix = pathlib.Path('.')):
-        ivy_jars = ivy.cache().resolve_classpath(self._classpath_entries)
-        return [ str(context_path_prefix / jar_path) for jar_path in ivy_jars ]
+    def resources_copy_to(self, dst, src, include, exclude, options = {}):
+        self._resources_copy_to.append((dst, Files.of(src, include, exclude, options)))
 
-    def _compile(self):
-        classes = self._path / 'dist'
+    def extend_compile_classpath(self, entries):
+        self._compile_classpath.extend(entries)
 
-        if not classes.exists():
-            classes.mkdir()
+    def extend_runtime_classpath(self, entries):
+        self._runtime_classpath.extend(entries)
 
-        javac = Javac(self._path)
-        javac.sources(self._sources)
-        javac.classes("dist")
-        javac.classpath(
-            self._assemble_classpath(pathlib.Path('../../'))
-        )
-        javac.compile()
+    def _copy_sources(self):
+        build     = self.path / 'build'
+        main_java = build / 'src/main/java'
+        test_java = build / 'src/test/java'
 
-    def _copy_resources(self):
-        for gs in self._resources:
+        if not main_java.exists():
+            main_java.mkdir(parents = True)
+
+        if not test_java.exists():
+            test_java.mkdir(parents = True)
+ 
+        for gs in self._sources:
             for g in gs:
-                for f in g:
-                    src = self._path / f
-                    dst = self._path / pathlib.Path('dist') / f.relative_to(gs._src)
+                for src in g:
+                    dst =  main_java / src.relative_to(gs._src)
                     if not dst.parent.exists():
                         dst.parent.mkdir(parents = True, exist_ok = True)
-                    #print("Copy", src, dst)
+                    print("Copy", src, dst)
                     shutil.copy2(src, dst)
 
-        for (d, gs) in self._resources_copy_to:
+    def _copy_resources(self):
+        targets = [
+            Path('build/dist'),
+            Path('build/src/main/resources')
+        ]
+        for gs in self._resources:
             for g in gs:
-                for f in g:
-                    src = self._path / f
-                    dst = self._path / d / f.relative_to(gs._src)
-                    #print("Copy to", src, dst)
+                for src in g:
+                    for target in targets:
+                        dst = self.path / target / src.relative_to(gs._src)
+                        if not dst.parent.exists():
+                            dst.parent.mkdir(parents = True, exist_ok = True)
+                        print("Copy", src, dst)
+                        shutil.copy2(src, dst)
+
+        for (dst, gs) in self._resources_copy_to:
+            for g in gs:
+                for src in g:
+                    dst = dst / src.relative_to(gs._src)
+                    if not dst.parent.exists():
+                        dst.parent.mkdir(parents = True, exist_ok = True)
+                    print("Copy to", src, dst)
                     shutil.copy2(src, dst)
 
-        # Always write manifest in case text changes.
-        manifest_path = self._path / pathlib.Path('dist/META-INF/MANIFEST.MF')
-        with open(manifest_path, 'w') as mf:
-            mf.write(self._manifest_text)
+    def classpath_attribute_value(self):
+        rcp = [ str(Path(e).relative_to(Path(os.getcwd()))) for e in self._runtime_classpath ]
+        cp  = ' '.join(rcp)
+        return cp
 
-    def _package(self):
-        jar_filename = self._path / 'project-test'
-        dir_path     = self._path / 'dist'
-        shutil.make_archive(jar_filename, 'zip', dir_path)
+    def _write_manifest(self, mfpath):
+        # Select specified manifest or from file if changes exists.
+        manifest = self.manifest if not self.manifest is None else (
+            Manifest.load(mfpath) if not self.manifest_changes is None else None
+        )
 
-    def build(self):
-        self._compile()
-        self._copy_resources()
-        self._package()
+        # Write manifest (otherwise it is expected to be added as a resource).
+        if not manifest is None:
+            if not self.manifest_changes is None:
+                manifest.update(self.manifest_changes)
+            if not mfpath.parent.exists():
+                mfpath.parent.mkdir(parents = True)
+            manifest.store(mfpath)
+
+
+    # Assemble 'build/' or deploy from zip.
+    #
+    # Build layout:
+    #   - Use one project per artifact when possible
+    #   - Use one build folder per artifact when not 
+    #
+    # build/
+    #   src/{main,test}/java/
+    #   src/{main,test}/resources/
+    #   dist/
+    def _create_source_tree(self, patch):
+        build_zip = self.path / 'build.zip'
+        build     = self.path / 'build'
+
+        if build.exists():
+            shutil.rmtree(build)
+
+        if not build_zip.exists():
+            self._copy_sources()
+            self._copy_resources()
+            # TODO: Should we really do this here? Not instead when compiling?
+            self._write_manifest(build / 'src/main/resources/META-INF/MANIFEST.MF')
+            tools.zip(build, build_zip)
+        else:
+            build.mkdir()
+            p = tools.unzip(build_zip, build)
+            print("Unzipped to", p)
+            
+
+        if not patch is None and patch.exists():
+            # NOTE
+            # We don't patch the 'ivy.xml' file.
+            # It is not necessary for simple refactoring.
+            # Also, simpler to use global|project build properties.
+            tools.patch(patch, build / 'src')
+
+    def _create_binary_tree(self):
+        build = self.path / 'build'
+        dist  = build / 'dist'
+
+        if not dist.exists():
+            dist.mkdir(parents = True)
+
+        # TODO: Copy resources from 'build/src/{main,test}/resources'
+        # TODO: Need test resource declarations (conf specific actions)
+
+        # The goal here is to copy resources that should be packaged into the jar.
+        # Deployment data is handled in the deployment function.
+
+        _src = build / 'src/main/resources'
+        for g in Files.include(_src, include = ['*']):
+            for src in g:
+                dst = dist / src.relative_to(_src)
+                if not dst.parent.exists():
+                    dst.parent.mkdir(parents = True, exist_ok = True)
+                print("Copy (binary resources)", src, dst)
+                shutil.copy2(src, dst)
+
+    def _compile(self, patch):
+        self._create_source_tree(patch)
+        self._create_binary_tree()
+
+        build     = self.path / 'build'
+        dist      = build / 'dist'
+        main_java = build / 'src/main/java'
+
+        javac = Javac()
+        javac.sources([ Files.include(main_java, ['*.java']) ])
+        javac.classes(str(dist))
+        javac.classpath(self._compile_classpath)
+        javac.compile() # TODO: Propagate failure.
+
+    def _package(self, patch, artifact):
+        self._compile(patch)
+        jar_src = self.path / 'build/dist'
+        jar_dst = artifact
+        tools.jar(jar_src, jar_dst)
+
+        if not patch is None and patch.exists():
+            cpy_src = patch
+            cpy_dst = artifact.parent / patch.name
+            print("Copy Patch", cpy_src, cpy_dst)
+            shutil.copy2(cpy_src, cpy_dst)
+
+    def _deploy(self):
+        patch    = self.config().patch_file_path()
+        artifact = self.path / 'var' / self.artifact()
+        if not patch is None and patch.exists():
+            patch_hash = tools.compute_patch_hash(patch)
+            artifact   = self.path / 'var' / patch_hash / self.artifact()
+
+        if not artifact.exists():
+            self._package(patch, artifact)
+
+        self._update_build_cache(artifact)
+
+        # Deploy application using custom logic.
+        # Deploy benchmarks into the build context.
+        if not self.deployment is None:
+            self.deployment(self.context(), self)
+
+    def _update_build_cache(self, artifact):
+        # We assume that all modules have already been pulled from providers.
+        jars  = ivy.cache().location(self.id) / 'jars'
+        jar   = jars / artifact.name
+        print("Update build cache", jar, "<=", artifact)
+        if not jars.exists():
+            jars.mkdir()
+        shutil.copy2(artifact, jar)
+
+    def build(self, clean):
+        if clean:
+            self.clean()
+        self._deploy()
+
+    def clean(self):
+        var       = self.path / 'var'
+        build     = self.path / 'build'
+        build_zip = self.path / 'build.zip'
+        if var.exists():
+            shutil.rmtree(var)
+        if build.exists():
+            shutil.rmtree(build)
+        if build_zip.exists():
+            os.remove(build_zip)
 
     def test(self):
-        pass
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    args   = parser.parse_args()
-
-    batik = Project('projects/batik-1.16')
-    batik.resources(
-        "src/main/java",
-        include = ['*'],
-        exclude = ['*.java', '**/jacl/*', '*.html', 'org/apache/batik/gvt/filter/filterDesc.txt']
-    )
-    batik.resources(
-        "src/main/resources",
-        include = ['*'],
-        exclude = ['NOTICE', 'LICENSE']
-    )
-    batik.resources_copy_to(
-        "src/main/resources",
-        "dist/META-INF",
-        include = ['NOTICE', 'LICENSE'],
-        exclude = []
-    )
-    batik.sources(
-        "src/main/java",
-        include = ['*.java'],
-        exclude = ['**/jacl/*'] # See 'batik-script/pom.xml'.
-    )
-    batik.classpath([
-        ivy.ID("xml-apis", "xml-apis", "1.4.01"),
-	ivy.ID("xml-apis", "xml-apis-ext", "1.3.04"),
-	ivy.ID("org.apache.xmlgraphics", "xmlgraphics-commons", "2.7"),
-	ivy.ID("commons-io", "commons-io", "1.3.1"),
-	ivy.ID("commons-logging", "commons-logging", "1.0.4"),
-        ivy.ID("org.mozilla", "rhino", "1.7.7"),
-        ivy.ID("org.python", "jython", "2.7.0")
-    ])
-    batik.manifest("""Manifest-Version: 1.0
-Created-By: Alfine
-Implementation-Title: org.apache.xmlgraphics:batik-all
-Implementation-Version: 1.16
-Implementation-Vendor-Id: org.apache.xmlgraphics
-Implementation-Vendor: Apache Software Foundation
-Main-Class: org.apache.batik.apps.svgbrowser.Main
-""")
-
-    # NOTE
-    # Checksums between ivy-provided and locally built jars fail even if manifest
-    # is the same because all class-files differ according to "diff -q -r -N -a tmp1 tmp2",
-    # where I unpacked ivy-provided and local builds, (probably) due to different javac versions (?).
-    #
-    # My util 'cmpzip.py' reports that they atleast have the same zipfile namelists.
-    # I guess that is the best we can do for now. It should not affect results.
-    #
-
-    batik.build()
+        raise ValueError('Unimplemented')
 

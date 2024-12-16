@@ -4,9 +4,33 @@ import argparse
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
+
+class ResolverModule:
+    _resources = Path('ivy-daivy-resolver-cache')
+
+    # Add specified module to 'daivy' resolver.
+    def add_module(module):
+        tree = ET.ElementTree(module.load_xml())
+        tree.write(ResolverModule(module.id, clear = True).ivy_xml_path)
+    
+    def __init__(self, id, clear):
+        if id is None or len(id.org) == 0 or len(id.mod) == 0 or len(id.rev) == 0:
+            raise ValueError('Bad module ID', id)
+        
+        self.path         = ResolverModule._resources / id.org / id.mod
+        self.ivy_xml_path = self.path / ('-'.join(['ivy', id.rev]) + '.xml')
+
+        if clear:
+            self.clear_location()
+
+    def clear_location(self):
+        if self.path.exists():
+            shutil.rmtree(self.path)
+        self.path.mkdir(parents = True)
 
 class ID:
     def __init__(self, org, mod, rev):
@@ -124,7 +148,14 @@ class ModuleBlueprint:
         self._deps       = []
         self._cnfsattrib = {}
         self._depsattrib = {}
+        self._artifacts  = []
         self._cnfs_element = None
+
+    def artifact(self, attrib):
+        if attrib is None:
+            self._artifacts = None
+        else:
+            self._artifacts.append(attrib)
 
     def attrib(self, cnfs = {}, deps = {}):
         self._cnfsattrib = cnfs
@@ -143,7 +174,11 @@ class ModuleBlueprint:
         self._cnfs.append(attrib)
         return self
 
-    def dep(self, attrib):
+    def dep(self, id, attrib):
+        if not id is None:
+            attrib['org']  = id.org
+            attrib['name'] = id.mod
+            attrib['rev']  = id.rev
         self._deps.append(attrib)
         return self
 
@@ -160,6 +195,7 @@ class ModuleBlueprint:
             'revision'     : id.rev
         })
         cs = ET.Element('configurations', self._cnfsattrib)
+        ps = ET.Element('publications', {})
         ds = ET.Element('dependencies', self._depsattrib)
 
         for c in self._cnfs:
@@ -170,6 +206,17 @@ class ModuleBlueprint:
 
         m.append(i)
         m.append(cs)
+        if self._artifacts is None:
+            m.append(ps) # Default to empty element to remove default artifact.
+        else:
+            if len(self._artifacts) > 0:
+                for art_attrib in self._artifacts:
+                    ps.append(ET.Element('artifact', art_attrib))
+                m.append(ps)
+            else:
+                # Don't add 'publications' to use default artifact
+                # which is a jar named after fields in module info.
+                pass
         m.append(ds)
 
         # Skip to/fromstring by providing module xml root.
@@ -197,6 +244,7 @@ class Cache:
     def __init__(self, cachepath = CacheConstants._default_cache_name):
         self._cachepath = cachepath
         self._modules   = dict()
+        self._dependency_resolver_cache = dict()
 
     def create_cache(name = None):
         is_default_cache_name = name == CacheConstants._default_cache_name
@@ -239,6 +287,8 @@ class Cache:
                 "java",
                 "-jar",
                 "tools/ivy-2.5.2.jar",
+                "-settings",
+                "settings/ivysettings.xml", # Use custom settings to add the local 'daivy' resolver.
                 "-cache",
                 self._cachepath,
                 "-dependency",
@@ -249,15 +299,31 @@ class Cache:
             subprocess.run(cmd, shell = True)
         return ivy_xml
 
+    def location(self, id):
+        return self.resolve_ivy_xml(id).parent
+
+    # Return list of paths to resolved jar files.
+    # NOTE: It is possible to resolve the 'ivy.xml'
+    #       file from the artifact paths, which can
+    #       be used to resolve module IDs of dependencies
+    #       for specific configurations.
     def resolve_dependencies(self, id, confs):
+        cache_id = ';'.join([id.coord()] + confs)
+        if cache_id in self._dependency_resolver_cache:
+            return self._dependency_resolver_cache[cache_id]
         with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
             fp.close()
             cmd = " ".join([
                 "java",
                 "-jar",
                 "tools/ivy-2.5.2.jar",
+                "-settings",
+                "settings/ivysettings.xml", # Use custom settings to add the local 'daivy' resolver.
                 "-cache",
                 self._cachepath,
+                "-types",
+                "jar",
+                "bundle", # TODO: Add types as parameter (need bundle to get HdrHistogram)
                 "-dependency",
                 id.org,
                 id.mod,
@@ -272,24 +338,14 @@ class Cache:
             with open(fp.name, 'r') as f:
                 lines = f.readlines()
                 if len(lines) == 1:
-                    return lines[-1].split(':')
+                    value = lines[0].strip().split(':')
+                    self._dependency_resolver_cache[cache_id] = value
+                    print("Resolved dependencies [", id.coord(), "] (", confs, ")")
+                    for d in value:
+                        print(" ", d)
+                    return value
                 else:
-                    return []
-
-    def resolve_classpath(self, ids):
-        entries                = []
-        local_build_cache_path = Path(CacheConstants._default_build_cache)
-        for id in ids:
-            m              = self.resolve(id)
-            ivy_cache_path = self.resolve_ivy_xml(id).parent / 'jars'
-            for art in IvyXMLQueries.artifacts(m.load_xml()):
-                # TODO: May want to verify that it is a binary.
-                local_version = local_build_cache_path / art
-                if local_version.exists():
-                    entries.append(local_version)
-                else:
-                    entries.append(ivy_cache_path / art)
-        return entries
+                    raise ValueError('Unexpected classpath file. Ivy dependency resolution may have failed.')
 
     def resolve(self, id):
         # Always make a recursive descent on all declared dependencies.
