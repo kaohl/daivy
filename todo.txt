@@ -34,7 +34,7 @@
           computed from the original deployment.
 
 ## Recursive builds
-- [ ] Traverse dependency graph of top-level project (benchmark)
+- [x] Traverse dependency graph of top-level project (benchmark)
       and recursively build all transitive dependencies
 
 # Refactoring
@@ -186,4 +186,42 @@
 - [x] Build dacapo harness
 - [x] Build batik harness
 - [x] Assemble benchmark jar
+
+
+# Dacapo benchmarks
+Priority list for dacapo benchmark adaption.
+
+## Prio 1
+- [/] batik  (Compile|Deploy|Run)
+- [ ] h2
+- [ ] luindex
+- [ ] lusearch
+- [ ] tradebeans
+- [ ] tradesoap
+- [ ] xalan
+
+## Prio 2
+- [ ] avrora
+- [ ] fop
+- [ ] graphchi  // Patches pom (pay attention when generating ivy file)
+- [ ] pmd
+- [ ] sunflow
+- [ ] zxing
+
+# Prio 3 (Maybe)
+- [ ] biojava
+- [ ] kafka
+
+# Prio 4 (Maybe, maybe not)
+- [ ] spring
+
+# Prio 5 (Maybe, but probably not)
+- [ ] h2o
+- [ ] jme
+- [ ] jython
+- [ ] tomcat
+
+# Prio 6 (Probably not)
+- [ ] cassandra
+- [ ] eclipse
 
