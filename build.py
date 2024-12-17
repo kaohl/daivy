@@ -1,6 +1,7 @@
 #!/bin/env python3
 
 import argparse
+import os
 from pathlib import Path
 import shutil
 import zipfile
@@ -198,24 +199,36 @@ if __name__ == '__main__':
         help = "Export project source code and eclipse configuration")
     parser.add_argument('--clean', required = False, action = "store_true",
         help = "Clean project before building")
+    parser.add_argument('--verbose', required = False, action = "store_true",
+        help = "Print extra information during execution")
     args = parser.parse_args()
 
-    # ATTENTION
-    # The user must build all relevant projects "manually" (scripted).
-    # Implementing recursive builds is TODO at the moment (see notes/).
-    print("ATTENTION", "Do not forget to build dependencies first")
+    if args.verbose:
+        print("Using build context")
+        print("  path = " + args.context)
 
-    Project._global_build_context = BuildContext(args.context)
+    if args.export:
+        raise ValueError('Export is unimplemented')
+
+    build_order = ivy.cache().compute_build_order(
+        ivy.ID.from_coord(args.project),
+        verbose = args.verbose
+    )
+
+    Project._global_build_context = BuildContext(args.context, args)
 
     projects = {
         'dacapo:batik:1.0'                      : bm_batik,
         'org.apache.xmlgraphics:batik-all:1.16' : batik_1_16
     }
 
-    project = projects[args.project]()
+    if args.verbose:
+        print("Build order" + os.linesep + os.linesep.join([
+            "  " + p.coord() for p in build_order if p.coord() in projects
+        ]))
 
-    if args.export:
-        raise ValueError('Export is unimplemented')
-
-    project.build(args.clean)
+    for coord in [id.coord() for id in build_order]:
+        if coord in projects:
+            project = projects[coord]()
+            project.build(args.clean)
 

@@ -1,6 +1,9 @@
 build
+dacapo
 dacapobench
 downloads
 ivy-cache
-__pycache__
 projects
+ivy-daivy-resolver-cache
+__pycache__
+

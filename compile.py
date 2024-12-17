@@ -116,6 +116,7 @@ class Config:
     def __init__(self, id, context):
         self.id      = id
         self.context = context
+        self.verbose = context.args.verbose
 
     # Return the file path for the patch file for specified artifact.
     # If an artifact id is not specified, default is assumed.
@@ -124,13 +125,9 @@ class Config:
         return self.context.path / ('-'.join([id.mod, id.rev]) + '.patch')
 
 class BuildContext:
-    def __init__(self, path):
+    def __init__(self, path, args):
         self.path = Path(path)
-        self.dist = self.path / 'dist'
-
-        print("Using build context")
-        print("  path = " + str(self.path))
-        print("  dist = " + str(self.dist))
+        self.args = args
 
     def config(self, id):
         return Config(id, self)

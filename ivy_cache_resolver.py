@@ -287,6 +287,7 @@ class Cache:
                 "java",
                 "-jar",
                 "tools/ivy-2.5.2.jar",
+                "-warn",
                 "-settings",
                 "settings/ivysettings.xml", # Use custom settings to add the local 'daivy' resolver.
                 "-cache",
@@ -317,6 +318,7 @@ class Cache:
                 "java",
                 "-jar",
                 "tools/ivy-2.5.2.jar",
+                "-warn",
                 "-settings",
                 "settings/ivysettings.xml", # Use custom settings to add the local 'daivy' resolver.
                 "-cache",
@@ -407,6 +409,52 @@ class Cache:
             for key in sorted(visited):
                 print(" ", key)
 
+    def compute_build_order(self, id, verbose = False):
+        visitor = GraphVisitor()
+        visitor.visit(self.resolve(id), verbose)
+        return visitor._build_order
+
+class GraphVisitor:
+    def __init__(self):
+        self._visited      = set()
+        self._visited_from = dict() # { <coord> : [ <dependee> ] }
+        self._dependencies = dict() # { <coord> : { <coord> } }
+        self._build_order  = []     # [ <id> ]
+
+    def _enter(self, module, verbose, indent, trace):
+        coord = module.id.coord()
+        if coord not in self._visited_from:
+            self._visited_from[coord] = []
+        self._visited_from[coord].append([x for x in trace])
+
+        if coord in self._visited:
+            if verbose:
+                print(indent[:-2] + "^ " + coord)
+            return False
+        if verbose:
+            print(indent + coord)
+        self._visited.add(coord)
+        return True
+
+    def _leave(self, module, trace):
+        self._build_order.append(module.id)
+
+    def visit(self, module, verbose = False, indent = '', trace = []):
+        coord = module.id.coord()
+        if not self._enter(module, verbose, indent, trace):
+            return
+        dependencies              = module.declared_dependencies()
+        self._dependencies[coord] = dependencies
+        trace.append(module.id)
+        for dep in dependencies:
+            self.visit(
+                module._cache.resolve(dep),
+                verbose,
+                indent + ' '*2,
+                trace
+            )
+        trace.pop()
+        self._leave(module, trace)
 
 def blueprint():
     return ModuleBlueprint()
