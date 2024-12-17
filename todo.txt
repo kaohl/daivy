@@ -1,10 +1,50 @@
 
-General
+# General
+## cmpzip
 - [x] Create a zip/jar diff utility that can check for missing/extra files between
       locally built jars vs. ivy provided jars.
       - See 'cmpzip.py'
 
-Batik 1.16
+## Benchmark Deployment
+- [ ] Validate md5sum of deployed artifacts by comparing
+      the md5 of the deployed artifact against the md5
+      of the corresponding artifact in the source project
+      based on the md5 of patch files in build context.
+
+  * Building a dependency without a patch will deploy
+    the unpatched (original) version.
+
+   <context>/<artifact>.patch => var/<md5sum(<artifact>.patch)>/{<artifact>.jar,<artifact>.patch}
+   * We can always produce the modified source tree by applying the patch to the unzipped 'build.zip'
+
+  - We don't validate the ivy-cache state directly,
+    instead validate md5 of deployed artifacts
+    - When we build an artifact or update the ivy cache,
+      we collect the md5 of the deployed artifact.
+      This md5 can be used to validate the artifact copied
+      to the buid context deployment.
+      - Since a build is recursive we will process all
+        source projects affecting the built benchmark
+        and hence get a checksum for each artifact
+        built from source.
+        - We can append these checksum expectations to
+          a checksum assertion on the whole deployment
+          similar to how dacapo does it. Checksums
+          collected during build overrides defaults
+          computed from the original deployment.
+
+## Recursive builds
+- [ ] Traverse dependency graph of top-level project (benchmark)
+      and recursively build all transitive dependencies
+
+# Refactoring
+- [ ] Generate eclipse configuration for refactoring framework
+  - [ ] Extract source archives into workspace assets
+  - [ ] Extract binary archives into workspace assets
+  - [ ] Generate workspace configuration file
+  * For refactoring, we can use binary dependencies
+
+# Batik 1.16
 - [x] Search batik source modules for excluded source code to avoid compilation errors
   - [x] batik-anim
   - [x] batik-awt-util
@@ -92,55 +132,58 @@ Batik 1.16
   - batik-script
   - batik-test-old
 
-.Main
-..Extract
+## Main (batik-1.16)
+### Extract
 - [x] Copy <batik-module>/src into <project>/src
-..Compile
+### Compile
 - [x] Compile <project>/src
 - [x] Gather list of dependencies
-- [ ] Resolve dependencies via ivy or via local build cache
-..Package
+  - [ ] Investigate automated approach (recurse over deps in batik modules)
+- [x] Resolve dependencies via ivy or via local build cache
+### Package
 - [x] Investigate assembly of jar file (NOTICE, LICENSE, META-INF/{MANIFEST.MF,imports/,services/})
   - All seems to be included via 'src/main/resources'
+  - [ ] Some issue with "copy to" resources including NOTICE and LICENSE
 - [x] Include 'src/main/resources'
 - [x] Exclude files from source tree resources
 
-.Test
-..Extract
+## Test (batik-1.16)
+### Extract
   - [ ] Copy test-resources into <project>/test-resources
   - [ ] Copy test code
-    - Can source and resource trees be merged?
-..Compile
-  - How to handle dependency on locally built batik jar?
-..Package
-  - One or multiple test suite artifacts?
-..Run
-  - How to execute tests?
-    - Ant?
-    - Maven?
-    - Command-line?
+  - [ ] Decide on how to handle test projects
+        - Inline or separate projects or sub-projects?
+        - Either way they need ivy modules with test config and dependency on tested artifact
+        - [ ] Generate test project and ivy config
+### Compile
+  - [ ] Compile projects with test configuration
+### Package
+  - [ ] Make test suite executable
+    - Does not necessarily need to be packaged
+### Run
+  - [ ] Investigate running junit tests from command-line:
+        java\
+          -cp dist/:<additional test class dependencies>:hamcrest-core...:junit...\
+          org.junit.runner.JUnitCore\
+          <fully qualified test class>
 
-- [ ] Investigate running junit tests from command-line:
-      java\
-        -cp dist/:<additional test class dependencies>:hamcrest-core...:junit...\
-        org.junit.runner.JUnitCore\
-        <fully qualified test class>
+      - Use ivy wrapper to resolve test classpath
 
-      - [ ] Inject test dependencies
-      - [ ] Inject correct version of junit
 
+# JaCoCo (Test coverage reports)
 - [ ] Investigate running jacococli
   - See README-jacoco.txt
-       
 
-.Refactor
-- [ ] Generate eclipse configuration for refactoring framework
-  - [ ] Extract source archives into workspace assets
-  - [ ] Extract binary archives into workspace assets
-  - [ ] Generate workspace configuration file
 
-Batik benchmark
-- [ ] Build dacapo harness
-- [ ] Build batik harness
-- [ ] Assemble benchmark jar
+# Dacapo Harness
+- [x] Extract and build harness with benchmarks
+- Handle harness resources (see 'build.py')
+  - [ ] META-INF/md5/<bm-name>.MD5
+  - [ ] META-INF/yml/<bm-name>.yml
+
+
+# Batik benchmark
+- [x] Build dacapo harness
+- [x] Build batik harness
+- [x] Assemble benchmark jar
 
