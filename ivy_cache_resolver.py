@@ -234,10 +234,6 @@ class CacheConstants:
     _default_cache_name = 'ivy-cache'
     _default_cache      = None
 
-    # This is where built artifacts are placed
-    # for classpath resolution.
-    _default_build_cache = 'ivy-cache/.alfine-build-cache'
-
 class Cache:
     # Private constructor.
     # Use Cache.create_cache(<name>) instead.
@@ -339,15 +335,17 @@ class Cache:
 
             with open(fp.name, 'r') as f:
                 lines = f.readlines()
-                if len(lines) == 1:
-                    value = lines[0].strip().split(':')
+                if len(lines) < 2:
+                    line  = lines[0] if len(lines) > 0 else ""
+                    value = line.strip().split(':')
                     self._dependency_resolver_cache[cache_id] = value
-                    print("Resolved dependencies [", id.coord(), "] (", confs, ")")
+                    print(" --- Resolved dependencies --- [", id.coord(), "] (", confs, ")")
                     for d in value:
                         print(" ", d)
+                    print("-----------------------------------")
                     return value
                 else:
-                    raise ValueError('Unexpected classpath file. Ivy dependency resolution may have failed.')
+                    raise ValueError('Unexpected classpath file. Ivy dependency resolution may have failed. Lines = ', lines)
 
     def resolve(self, id):
         # Always make a recursive descent on all declared dependencies.

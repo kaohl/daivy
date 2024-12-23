@@ -107,14 +107,27 @@ def bm_deploy(context, project):
         shutil.copy2(d, jar / Path(d).name)
         print("jar:", jar / Path(d).name)
 
-    # Copy benchmark data into context
-    data = project.path / 'data' / 'dat'
-    dat_bm_name = dat / bm_name
+    ## Copy benchmark data into context
+    #data = project.path / 'data' / 'dat'
+    #dat_bm_name = dat / bm_name
+    ##print("Copy", data, dat_bm_name)
+    #shutil.copytree(data, dat_bm_name, dirs_exist_ok = True)
 
-    #print("Copy", data, dat_bm_name)
-    shutil.copytree(data, dat_bm_name, dirs_exist_ok = True)
+    # Symlink unpacked data archive into deployment.
+    data_link_src = Path.cwd() / Path('build') / (bm_name + '-data')
+    data_link_dst = dat / bm_name
+    print("Linking data into deployment")
+    print(" ", data_link_src)
+    print(" =>", data_link_dst)
+    os.symlink(
+        data_link_src,
+        data_link_dst,
+        target_is_directory = True
+    )
+
+    # Deploy artifact from build cache
     shutil.copy2(ivy.cache().location(project.id) / 'jars' / bm_artifact, path.parent)
-
+    
     context_art = path.parent / bm_artifact
 
     # TODO: Fix later if needed.
@@ -123,9 +136,9 @@ def bm_deploy(context, project):
         f.writestr('META-INF/md5/' + bm_name + '.MD5', bytes())
         f.writestr('META-INF/yml/' + bm_name + '.yml', bytes())
 
-def bm_batik():
-    id = ivy.ID('dacapo', 'batik', '1.0')
-    bm = Project('projects/batik', id)
+def bm_build(name):
+    id = ivy.ID('dacapo', name, '1.0')
+    bm = Project('projects/' + name, id)
 
     bm.deployment = bm_deploy
 
@@ -138,11 +151,18 @@ def bm_batik():
         bm.path / 'harness/src',
         include = ['*.java']
     )
+
+    if (bm.path / 'src').exists():
+        bm.sources(
+            bm.path / 'src',
+            include = ['*.java']
+        )
+
     bm.resources_copy_to(
         bm.path / 'build/src/main/resources/META-INF/cnf',
         bm.path,
-        include = ['batik.cnf'],
-        exclude = ['build/src/main/resources/META-INF/cnf/batik.cnf'],
+        include = [name + '.cnf'],
+        exclude = ['build/src/main/resources/META-INF/cnf/' + name + '.cnf'],
         options = {'verbose' : True }
     )
     return bm
@@ -189,6 +209,42 @@ def batik_1_16():
     })
     return batik
 
+def lucene_9_10_0(module):
+    id       = ivy.ID('org.apache.lucene', 'lucene-' + module, '9.10.0')
+    project  = Project('projects/lucene-' + module + '-9.10.0', id)
+    project.set_source_version(11)
+    project.set_target_version(11)
+    project.sources(
+        project.path / "src/main/java",
+        include = ['*.java']
+    )
+    project.resources(
+        project.path / "src/main/resources",
+        include = ['*']
+    )
+    compile_deps = ivy.cache().resolve_dependencies(id, ['compile'])
+    runtime_deps = ivy.cache().resolve_dependencies(id, ['runtime'])
+    project.extend_compile_classpath(compile_deps)
+    project.extend_runtime_classpath(runtime_deps)
+    # NOTE: Had to add runtime deps to module path to get module-info for binary runtime dependencies during compile.
+    # com.carrotsearch.hppc module-info is missing and not a compile dependency.
+    # The provided jar defines an "Automatic-Module-Name" in manifest.
+    project.extend_compile_modulepath(compile_deps)
+    project.extend_compile_modulepath(runtime_deps)
+    project.manifest = Manifest({
+        'Manifest-Version'      : '1.0',
+        'Extension-Name'        : 'org.apache.lucene',
+        'Implementation-Vendor' : 'The Apache Software Foundation',
+        'Implementation-Title'  : 'org.apache.lucene',
+        'Specification-Vendor'  : 'The Apache Software Foundation',
+        'Specification-Version' : '9.10.0',
+        'Specification-Title'   : 'Lucene Search Engine: ' + module,
+        # TODO (META-INF/versions/*)
+        # BLOCKER: (Maybe) Multi-Release source trees can't be handled by refactoring framework yet.
+        # 'Multi-Release'         : 'true'
+    })
+    return project
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project', required = True,
@@ -218,9 +274,21 @@ if __name__ == '__main__':
     Project._global_build_context = BuildContext(args.context, args)
 
     projects = {
-        'dacapo:batik:1.0'                      : bm_batik,
-        'org.apache.xmlgraphics:batik-all:1.16' : batik_1_16
-    }
+        'dacapo:batik:1.0'                                : lambda: bm_build('batik'),
+        'dacapo:luindex:1.0'                              : lambda: bm_build('luindex'),
+        'dacapo:lusearch:1.0'                             : lambda: bm_build('lusearch'),
+        'org.apache.xmlgraphics:batik-all:1.16'           : batik_1_16,
+        'org.apache.lucene:lucene-analysis-common:9.10.0' : lambda: lucene_9_10_0('analysis-common'),
+        'org.apache.lucene:lucene-backward-codecs:9.10.0' : lambda: lucene_9_10_0('backward-codecs'),
+        'org.apache.lucene:lucene-core:9.10.0'            : lambda: lucene_9_10_0('core'),
+        'org.apache.lucene:lucene-codecs:9.10.0'          : lambda: lucene_9_10_0('codecs'),
+        'org.apache.lucene:lucene-demo:9.10.0'            : lambda: lucene_9_10_0('demo'),
+        'org.apache.lucene:lucene-expressions:9.10.0'     : lambda: lucene_9_10_0('expressions'),
+        'org.apache.lucene:lucene-facet:9.10.0'           : lambda: lucene_9_10_0('facet'),
+        'org.apache.lucene:lucene-queries:9.10.0'         : lambda: lucene_9_10_0('queries'),
+        'org.apache.lucene:lucene-queryparser:9.10.0'     : lambda: lucene_9_10_0('queryparser'),
+        'org.apache.lucene:lucene-sandbox:9.10.0'         : lambda: lucene_9_10_0('sandbox')
+       }
 
     if args.verbose:
         print("Build order" + os.linesep + os.linesep.join([

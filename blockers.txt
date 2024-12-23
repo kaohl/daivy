@@ -1,0 +1,6 @@
+
+Multi-Release not supported in frameworks
+- The build and refactoring frameworks does not currently handle
+  Multi-Release projects so we can only build lucene modules for jdk11 and,
+  I'm guessing, up to and including jdk17, because lucene-core has source
+  additions for higher versions of the jdk.

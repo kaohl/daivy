@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 import shutil
 import subprocess
+import tarfile
 import zipfile
 from zipfile import ZipFile
 
@@ -22,8 +23,18 @@ def javacc_7_0_12(rel_cwd_path, options_map, inputfile_list, verbose = False):
     ]
     command = " ".join(parts + options_list + inputfile_list)
     if verbose:
-        print("[run]", command)
+        print("[javacc]", command)
     subprocess.run(command, shell = True, cwd=rel_cwd_path)
+
+def untar(src, dst):
+    if not tarfile.is_tarfile(src):
+        raise ValueError('Specified file is not a tar file', src)
+
+    with tarfile.open(src, 'r:*') as t:
+        print('[untar]', src, 'into', dst)
+        t.extractall(dst)
+
+    return dst
 
 def unzip(src, dst):
 
@@ -31,23 +42,38 @@ def unzip(src, dst):
         raise ValueError('Specified file is not a zip file', src)
 
     with ZipFile(src, 'r') as z:
-        print('[run] unzip', src, 'into', dst)
+        print('[unzip]', src, 'into', dst)
         z.extractall(dst)
 
     return dst
 
-def zip(src, dst):
+def _zip(src, dst):
+    if src is None or dst is None:
+        raise ValueError('Cannot zip', src, dst)
     if dst.suffix == '.zip':
         dst = dst.parent / dst.stem
-    print("[run] zip", src, dst)
+    print("[zip]", str(src), str(dst))
     shutil.make_archive(dst, 'zip', src)
 
+def zip(src, dst):
+    _zip(src, dst) # Call internal.
+
 def jar(src, dst):
-    zip(src, dst)
-    shutil.move(str(dst) + '.zip', dst)
+    print("[jar]", str(src), str(dst))
+    _zip(src, dst) # Call internal to avoid collision with builtin 'zip'.
+    shutil.copy2(str(dst) + '.zip', dst)
 
 def patch(src, dst):
-    print("[run] patch", src, dst)
+    print("[patch]", src, dst)
+
+def compute_md5(target):
+    print("[digest]", str(target))
+    with open(target, "rb") as f:
+        digest = hashlib.file_digest(f, "md5")
+        return digest.hexdigest()
+
+def is_md5(target, md5):
+    return md5 == compute_md5(target)
 
 # Validate MD5 checksum of specified file.
 # Note: If the origin of the file does not provide an MD5 checksum,
@@ -55,18 +81,20 @@ def patch(src, dst):
 #       then compute an MD5 sum of the same file and used that
 #       as argument to this function.
 def validate_file(target, md5):
-    with open(target, "rb") as f:
-        digest = hashlib.file_digest(f, "md5")
-        if md5 != digest.hexdigest():
-            raise ValueError(
-                "Invalid file checksum",
-                target,
-                "Expected MD5 to be",
-                md5,
-                "but found",
-                digest.hexdigest()
-            )
-        print("Validation succeeded for file", str(target))
+    digest = compute_md5(target)
+    is_valid = md5 is None or md5 == digest
+    if not is_valid:
+        raise ValueError(
+            "Invalid file checksum",
+            target,
+            "Expected MD5 to be",
+            md5,
+            "but found",
+            digest
+        )
+    elif is_valid:
+        print("Validation succeeded for file", str(target), "(" + ("unchecked" if md5 is None else "checked") + ")")
+    return is_valid
 
 # Fetch specified file from url with optional MD5 validation.
 # Return path to the downloaded resource.
@@ -80,11 +108,19 @@ def fetch(url, file, md5 = None, cache = Path('downloads')):
     # Note: Fetch using 'wget' to avoid 'user-agent'
     #       issues with http requests from urllib.
 
-    if not file.exists():
-        print("Fetching", file, "from", url)
-        subprocess.run(
-            " ".join(['wget', '--no-clobber', '--output-document=' + str(file), url]), shell = True
-        )
+    # Fetch if not exists or try to resume if the fetch was not completed.
+    if file.exists():
+        print("Validating cached file", file)
+    continue_download = md5 is not None and file.exists() and not is_md5(file, md5)
+    if not file.exists() or continue_download:
+        print("Fetching", file, "from", url, "(" + ("continue" if continue_download else "fetch") + ")")
+        cmd = " ".join([
+            'wget',
+            ('-c' if continue_download else '--no-clobber'),
+            '--output-document=' + str(file),
+            url
+        ])
+        subprocess.run(cmd, shell = True)
     else:
         print("Fetching", file.parts[-1], "from", file)
 

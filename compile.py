@@ -25,12 +25,13 @@ def javac_fn(options_file, sources_file):
 
     cmd = " ".join([
         'echo pwd=`pwd`;',
-        "javac",
+        "${JAVA_HOME}/bin/javac -version;",
+        "${JAVA_HOME}/bin/javac",
         "@" + options_file,
         "@" + sources_file
     ])
     print("Command", cmd)
-    subprocess.run(cmd, shell = True)
+    subprocess.run(cmd, shell = True, check = True)
 
 def compile(options, source_sets):
     with tempfile.NamedTemporaryFile(delete_on_close=False) as options_file:
@@ -91,6 +92,7 @@ class Javac:
         self._classes     = None
         self._sources     = []
         self._classpath   = []
+        self._modulepath  = []
 
     def classes(self, path):
         self._classes = Path(path)
@@ -99,7 +101,12 @@ class Javac:
         self._sources.extend(sources)
 
     def classpath(self, paths):
-        self._classpath.extend(paths)
+        paths = [ p.strip() for p in paths ]
+        self._classpath.extend([ p for p in paths if p != "" ])
+
+    def modulepath(self, paths):
+        paths = [ p.strip() for p in paths ]
+        self._modulepath.extend([ p for p in paths if p != "" ])
 
     def compile(self):
         options = []
@@ -108,15 +115,68 @@ class Javac:
             options.append(('-d', self._classes))
 
         if len(self._classpath) > 0:
-            options.append(('-classpath', ':'.join(self._classpath)))
+            cp = ':'.join(self._classpath)
+            options.append(('-classpath', cp))
+
+        if len(self._modulepath) > 0:
+            cp = ':'.join(self._modulepath)
+            options.append(('--module-path', cp))
 
         compile(options, self._sources)
 
 class Config:
-    def __init__(self, id, context):
-        self.id      = id
+
+    # TODO: Configuration needs some more thought...
+
+    _JDK8  = 'jdk8'
+    _JDK11 = 'jdk11'
+    _JDK17 = 'jdk17'
+    _SOURCE_VERSION = 'source-version'
+    _TARGET_VERSION = 'target-version'
+
+    _global_properties = None
+    def _load_global_properties(context_path):
+        if Config._global_properties is None:
+            props = Config._load_properties_file(context_path / 'global.properties')
+            print("using", Config._JDK8 , props.get(Config._JDK8))
+            print("using", Config._JDK11, props.get(Config._JDK11))
+            Config._global_properties = props
+        return Config._global_properties
+
+    _project_properties = dict()
+    def _load_project_properties(context, project):
+        coord = project.id.coord()
+        stem  = coord.replace(':', "_").replace('.', '_')
+        path  = context.path / stem + '.properties'
+        if not coord in Config._project_properties:
+            props                         = Config._load_properties_file(path, True) or dict()
+            props[Config._SOURCE_VERSION] = props.get(Config._SOURCE_VERSION) or project._source_version
+            props[Config._TARGET_VERSION] = props.get(Config._TARGET_VERSION) or project._target_version
+            Config._project_properties[coord] = props
+        return Config._project_properties[coord]
+
+    def _load_properties_file(path, optional = False):
+        if not path.exists():
+            if optional:
+                print("Failed to load optional properties file. Path does not exist:", str(path))
+                return None
+            raise ValueError('Required properties file does not exist', str(path))
+        print("Loading properties file", str(path))
+        properties = dict()
+        with open(path, 'r') as f:
+            for line in f:
+                kv = [ x.strip() for x in line.split('=') ]
+                properties[kv[0]] = kv[1]
+        return properties
+
+    def __init__(self, context, project):
+        self.id      = project.id
         self.context = context
+        self.project = project
         self.verbose = context.args.verbose
+
+    def properties(self):
+        return Config._load_project_properties(self.context, self.project)
 
     # Return the file path for the patch file for specified artifact.
     # If an artifact id is not specified, default is assumed.
@@ -129,26 +189,39 @@ class BuildContext:
         self.path = Path(path)
         self.args = args
 
-    def config(self, id):
-        return Config(id, self)
+    def config(self, project):
+        return Config(self, project)
 
 class Project:
 
-    # This variable will be set by the command line interface.
-    # The build context holds import/export resources.
+    # This variable is set by the command line interface.
+    # The build context holds import/export/deployment
+    # resources.
     _global_build_context = None
 
     def __init__(self, path, id = None):
-        self.id                 = id
-        self.path               = Path(path)
-        self._sources           = []
-        self._resources         = []
-        self._resources_copy_to = []
-        self._compile_classpath = []
-        self._runtime_classpath = [] # TODO: We don't seem to need the runtime classpath here if we add the manifest classpath in 'build.py'
-        self.manifest           = None
-        self.manifest_changes   = None
-        self.deployment         = None
+        self.id                  = id
+        self.path                = Path(path)
+        self._sources            = []
+        self._resources          = []
+        self._resources_copy_to  = []
+        self._compile_modulepath = []
+        self._compile_classpath  = []
+        self._runtime_classpath  = [] # TODO: We don't seem to need the runtime classpath here if we add the manifest classpath in 'build.py'
+        self.manifest            = None
+        self.manifest_changes    = None
+        self.deployment          = None
+        self._source_version     = 8
+        self._target_version     = 8
+
+        if not self.path.exists():
+            raise ValueError('Project path does not exist', str(self.path))
+
+    def set_source_version(self, vnum):
+        self._source_version = int(vnum)
+
+    def set_target_version(self, vnum):
+        self._target_version = int(vnum)
 
     def context(self):
         return Project._global_build_context
@@ -156,7 +229,7 @@ class Project:
     def config(self):
         if Project._global_build_context is None:
             return None
-        return Project._global_build_context.config(self.id) if self.id else None
+        return Project._global_build_context.config(self)
 
     def artifact(self):
         return '-'.join([self.id.mod, self.id.rev]) + '.jar'
@@ -169,6 +242,9 @@ class Project:
 
     def resources_copy_to(self, dst, src, include, exclude, options = {}):
         self._resources_copy_to.append((dst, Files.of(src, include, exclude, options)))
+
+    def extend_compile_modulepath(self, entries):
+        self._compile_modulepath.extend(entries)
 
     def extend_compile_classpath(self, entries):
         self._compile_classpath.extend(entries)
@@ -310,7 +386,8 @@ class Project:
         javac.sources([ Files.include(main_java, ['*.java']) ])
         javac.classes(str(dist))
         javac.classpath(self._compile_classpath)
-        javac.compile() # TODO: Propagate failure.
+        javac.modulepath(self._compile_modulepath)
+        javac.compile()
 
     def _package(self, patch, artifact):
         self._compile(patch)

@@ -5,6 +5,31 @@
       locally built jars vs. ivy provided jars.
       - See 'cmpzip.py'
 
+# Java / Project (Re-)Sources
+- [ ] The original ivy-provided versions of lucene modules are Multi-Release.
+      - Should we handle this?
+      - Which JVM versions are of interest? (LTS versions?)
+      - I guess we could distinguish between "required" and "optional"
+        and "conditional" source sets to handle different cases such as
+        multi-release, and compile code using jdks specified in build options:
+        'jdk11':'...'
+        'jdk17':'...'
+        'jdk21':'...'
+        If the required jdk for a conditional source set is unavailable
+        the source is excluded with a comment in verbose mode.
+        If the required jdk for an unconditional source set is unavailable,
+        the build fails.
+        "required"    -- Unconditional (required code) (build fails if not included)
+        "conditional" -- Implicit, conditional, inclusion based on availability of tools
+                         such as different jdks
+        "optional"    -- Enabled explicitly using build options (feature)
+
+- [ ] Should source version be set on individual source file sets instead of on the project?
+  - Alt. 1: Default on project; override on source file set
+  - Alt. 2: Only version on source file set
+  - TODO: How does this affect ivy master configs and classpath resolution?
+          I suppose, if different versions require different dependencies then we need version dependent configurations.
+
 ## Benchmark Deployment
 - [ ] Validate md5sum of deployed artifacts by comparing
       the md5 of the deployed artifact against the md5
