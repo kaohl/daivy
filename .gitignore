@@ -1,9 +1,15 @@
+# Framework related folders.
 build
 dacapo
 dacapobench
 downloads
 ivy-cache
-projects
 ivy-daivy-resolver-cache
+projects
 __pycache__
 
+# Framework benchmark build context (conf for 'build.py').
+context
+
+# Dacapo benchmark harness (default) scratch directory.
+scratch
