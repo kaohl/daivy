@@ -5,6 +5,16 @@
       locally built jars vs. ivy provided jars.
       - See 'cmpzip.py'
 
+# Reproducible builds
+- [/] To create a reproducible build, the caller must specify which dependencies
+      are to be built from source when building a specific benchmark, and which
+      should use ivy-provided orignal binary dependencies. Because, if someone
+      later adds a source build for a dependency of that benchmark, we need to
+      force ivy-provided orignal versions for binary dependencies, for that
+      particular build.
+      * For now, a build will only be reproducible if the build configuration
+        is kept and if the benchmark is built with the same framework version.
+
 # Java / Project (Re-)Sources
 - [ ] The original ivy-provided versions of lucene modules are Multi-Release.
       - Should we handle this?
@@ -212,6 +222,42 @@
 - [x] Build batik harness
 - [x] Assemble benchmark jar
 
+# Xalan benchmark
+- [x] Extract resources
+- [x] Compile
+- [x] Assemble benchmark jar
+- [x] Deploy
+- [ ] Add lib/*.jar from xalan-2.7.2 into classpath?
+      *** Only needed for compilation it seems...
+          Add anyway?
+
+# Xalan 2.7.2
+- [x] Compile
+- [ ] Deploy
+      - Add lib/*.jar as transitive classpath property
+        so that xalan benchmark can pick up these
+        runtime dependencies (Not required but would
+        be good to imitate the original artifact as much
+        as possible.)
+        Alternatively, merge into xalan-2.7.2.jar like the
+        original.
+- [x] Handle META-INF/services
+- [x] Clean up extraction and build
+- [x] Validate that this version works against xalan benchmark
+      because we get version 2.9.1 of xerces instead of 2.8.0
+      that is assumed in DaCapo.
+
+# Our benchmarks
+- [ ] ExtendJ
+  - Consider whether we can use the source trees of projects that we build
+    from source as workloads for the ExtendJ compiler benchmark.
+    To do so we can prepare javac calls by assembling argument files and
+    save those together with a copy of a primed source tree and then add
+    a selection of such projects into an 'extendj-data.zip' file that is
+    used for the ExtendJ benchmark.
+    * The extendj benchmark (and other compiler implementations could then
+      potentially benefit from all source projects added to the framework.
+- [ ] JaCoP
 
 # Dacapo benchmarks
 Priority list for dacapo benchmark adaption.
@@ -219,11 +265,11 @@ Priority list for dacapo benchmark adaption.
 ## Prio 1
 - [/] batik  (Compile|Deploy|Run)
 - [ ] h2
-- [ ] luindex
-- [ ] lusearch
+- [/] luindex
+- [/] lusearch
 - [ ] tradebeans
 - [ ] tradesoap
-- [ ] xalan
+- [/] xalan
 
 ## Prio 2
 - [ ] avrora

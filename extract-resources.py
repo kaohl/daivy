@@ -17,21 +17,37 @@ import tools
 
 import extract_batik
 import extract_lucene
+import extract_xalan
 
-# See <dacapo>/.../<bm>/downloads/<bm>-data.zip.MD5
-bm_data_md5 = {
-    'batik'    : '55fb9674f17157c7ea88381219c951d9',
-    'luindex'  : '1f7bd66b5869f47ea358829e6128de8c',
-    'lusearch' : '5723fcb558059c3f794fa7af410e171a',
+bm_data_files = {
+    'batik' : (
+        'https://download.dacapobench.org/chopin/data',
+        'batik-data.zip',
+        '55fb9674f17157c7ea88381219c951d9'
+    ),
+    'luindex' : (
+        'https://download.dacapobench.org/chopin/data',
+        'luindex-data.zip',
+        '1f7bd66b5869f47ea358829e6128de8c'
+    ),
+    'lusearch' : (
+        'https://download.dacapobench.org/chopin/data',
+        'lusearch-data.zip',
+        '5723fcb558059c3f794fa7af410e171a'
+    ),
+    'xalan' : (
+        'https://www.w3.org/TR/2001/WD-xforms-20010608',
+        'WD-xforms-20010608.zip',
+        '1473de8fd3df1ca1780947bc4f317d61'
+    )
 }
 
 def download_bm_data(name):
-    url  = 'https://download.dacapobench.org'
-    stem = name + '-data'
-    file = stem + '.zip'
-    md5  = bm_data_md5[name]
-    dst = Path("build/" + stem)
-    src = tools.fetch(url + '/chopin/data' + '/' + file, file, md5)
+    url  = bm_data_files[name][0]
+    file = bm_data_files[name][1]
+    md5  = bm_data_files[name][2]
+    dst  = Path("build/" + name + "-data")
+    src  = tools.fetch(url + '/' + file, file, md5)
     # Data can take a lot of time to unzip
     # so reuse unpacked if exists.
     if not dst.exists():
@@ -90,6 +106,15 @@ def extract_bm(name, dependencies):
     for dep_id, dep_attrib in dependencies:
         bp.dep(dep_id, dep_attrib)
     ivy.ResolverModule.add_module(bp.build())
+
+def extract_bm_xalan():
+    attrib = {
+        'force': 'true',
+        'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
+    }
+    extract_bm('xalan', [
+        (ivy.ID('xalan', 'xalan', '2.7.2'), copy.deepcopy(attrib)),
+    ])
 
 def extract_bm_luindex():
     attrib = {
@@ -172,6 +197,9 @@ def extract_resources():
     extract_bm_luindex()
     extract_bm_lusearch()
     extract_lucene.extract_lib_lucene()
+
+    extract_bm_xalan()
+    extract_xalan.extract_lib_xalan()
 
 if __name__ == '__main__':
     extract_resources()

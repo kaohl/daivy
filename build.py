@@ -245,6 +245,54 @@ def lucene_9_10_0(module):
     })
     return project
 
+def xalan_2_7_2():
+    xalan_id = ivy.ID('xalan', 'xalan', '2.7.2')
+    xalan    = Project('projects/xalan-2.7.2', xalan_id)
+    xalan.resources(
+        xalan.path / "src/main/java",
+        include = ['*'],
+        exclude = ['*.java', '*.html', '*.src', '*.lex', '*.inc', '*.cup']
+    )
+    xalan.resources(
+        xalan.path / "src/main/resources",
+        include = ['*'],
+    )
+    xalan.sources(
+        xalan.path / "src/main/java",
+        include = ['*.java']
+    )
+    libs = [
+        Path(os.getcwd()) / xalan.path / 'lib/BCEL.jar',
+        Path(os.getcwd()) / xalan.path / 'lib/runtime.jar',
+        Path(os.getcwd()) / xalan.path / 'lib/java_cup.jar',
+        Path(os.getcwd()) / xalan.path / 'lib/regexp.jar'
+    ]
+    # TODO: Move this check somewhere where we can validate classpath entries.
+    # TODO: Add these as transitive project build properties:
+    #       - classpath.compile.extras  // Add only to compile classpath
+    #       - classpath.runtime.extras  // Add only to runtime classpath
+    #       - classpath.extras          // Add to compile and runtime classpaths
+    for l in libs:
+        if not l.exists():
+            raise ValueError('File not found!', str(l))
+    libs = [ str(l) for l in libs ]
+    xalan.extend_compile_classpath(ivy.cache().resolve_dependencies(xalan_id, ['compile,optional']) + libs)
+    xalan.extend_runtime_classpath(ivy.cache().resolve_dependencies(xalan_id, ['runtime,optional']) + libs)
+    xalan.manifest = Manifest({
+        "Manifest-Version"        : "1.0",
+        "Created-By"              : "Alfine",
+        "Implementation-Title"    : "org.apache.xalan",
+        "Implementation-Version"  : "2.7.2",
+        "Implementation-Vendor-Id": "org.apache.xalan",
+        "Implementation-Vendor"   : "Apache Software Foundation",
+        "Main-Class"              : "org.apache.xalan.xslt.Process",
+        'Class-Path'              : xalan.classpath_attribute_value()
+        # Depends on runtime classpath being set.
+        # TODO: We can compute Class-Path here instead, no need to set runtime dependencies on project.
+        #       Also, we don't need this manifest since we are not going to invoke as standalone jar.
+    })
+    return xalan
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project', required = True,
@@ -266,17 +314,13 @@ if __name__ == '__main__':
     if args.export:
         raise ValueError('Export is unimplemented')
 
-    build_order = ivy.cache().compute_build_order(
-        ivy.ID.from_coord(args.project),
-        verbose = args.verbose
-    )
-
     Project._global_build_context = BuildContext(args.context, args)
 
     projects = {
         'dacapo:batik:1.0'                                : lambda: bm_build('batik'),
         'dacapo:luindex:1.0'                              : lambda: bm_build('luindex'),
         'dacapo:lusearch:1.0'                             : lambda: bm_build('lusearch'),
+        'dacapo:xalan:1.0'                                : lambda: bm_build('xalan'),
         'org.apache.xmlgraphics:batik-all:1.16'           : batik_1_16,
         'org.apache.lucene:lucene-analysis-common:9.10.0' : lambda: lucene_9_10_0('analysis-common'),
         'org.apache.lucene:lucene-backward-codecs:9.10.0' : lambda: lucene_9_10_0('backward-codecs'),
@@ -287,8 +331,17 @@ if __name__ == '__main__':
         'org.apache.lucene:lucene-facet:9.10.0'           : lambda: lucene_9_10_0('facet'),
         'org.apache.lucene:lucene-queries:9.10.0'         : lambda: lucene_9_10_0('queries'),
         'org.apache.lucene:lucene-queryparser:9.10.0'     : lambda: lucene_9_10_0('queryparser'),
-        'org.apache.lucene:lucene-sandbox:9.10.0'         : lambda: lucene_9_10_0('sandbox')
-       }
+        'org.apache.lucene:lucene-sandbox:9.10.0'         : lambda: lucene_9_10_0('sandbox'),
+        'xalan:xalan:2.7.2'                               : xalan_2_7_2,
+    }
+
+    if not args.project in projects:
+        raise ValueError("Missing build for specified project", args.project)
+
+    build_order = ivy.cache().compute_build_order(
+        ivy.ID.from_coord(args.project),
+        verbose = args.verbose
+    )
 
     if args.verbose:
         print("Build order" + os.linesep + os.linesep.join([
