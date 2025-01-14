@@ -32,6 +32,14 @@ class ResolverModule:
             shutil.rmtree(self.path)
         self.path.mkdir(parents = True)
 
+# Use this function to install a locally provided
+# module definition via the ivy-daivy resolver.
+# This will override the remote definition due
+# to how the resolver chain is defined in the
+# local ivy settings.
+def install_local_module(module):
+    ResolverModule.add_module(module)
+
 class ID:
     def __init__(self, org, mod, rev):
         self.org    = org

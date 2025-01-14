@@ -28,7 +28,7 @@ def javacc_7_0_12(rel_cwd_path, options_map, inputfile_list, verbose = False):
 
 def untar(src, dst):
     if not tarfile.is_tarfile(src):
-        raise ValueError('Specified file is not a tar file', src)
+        raise ValueError('Specified file is not a tar file', str(src))
 
     with tarfile.open(src, 'r:*') as t:
         print('[untar]', src, 'into', dst)
