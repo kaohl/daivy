@@ -293,6 +293,39 @@ def xalan_2_7_2():
     })
     return xalan
 
+def h2_2_2_220():
+    h2_id = ivy.ID('com.h2database', 'h2', '2.2.220')
+    h2    = Project('projects/h2-2.2.220', h2_id)
+    h2.resources(
+        h2.path / "src/main/java",
+        include = ['*'],
+        exclude = ['*.java', '*.html']
+    )
+    h2.resources(
+        h2.path / "src/main/resources",
+        include = ['*'],
+    )
+    h2.sources(
+        h2.path / "src/main/java",
+        include = ['*.java']
+    )
+    h2.extend_compile_classpath(ivy.cache().resolve_dependencies(h2_id, ['compile']))
+    h2.extend_runtime_classpath(ivy.cache().resolve_dependencies(h2_id, ['runtime']))
+    #h2.manifest = Manifest({
+    #    "Manifest-Version"        : "1.0",
+    #    "Created-By"              : "Alfine",
+    #    "Implementation-Title"    : "com.h2database org.apache.h2",
+    #    "Implementation-Version"  : "2.7.2",
+    #    "Implementation-Vendor-Id": "org.apache.h2",
+    #    "Implementation-Vendor"   : "Apache Software Foundation",
+    #    "Main-Class"              : "org.apache.h2.xslt.Process",
+    #    'Class-Path'              : h2.classpath_attribute_value()
+    #    # Depends on runtime classpath being set.
+    #    # TODO: We can compute Class-Path here instead, no need to set runtime dependencies on project.
+    #    #       Also, we don't need this manifest since we are not going to invoke as standalone jar.
+    #})
+    return h2
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project', required = True,
@@ -333,6 +366,7 @@ if __name__ == '__main__':
         'org.apache.lucene:lucene-queryparser:9.10.0'     : lambda: lucene_9_10_0('queryparser'),
         'org.apache.lucene:lucene-sandbox:9.10.0'         : lambda: lucene_9_10_0('sandbox'),
         'xalan:xalan:2.7.2'                               : xalan_2_7_2,
+        'com.h2database:h2:2.2.220'                       : h2_2_2_220,
     }
 
     if not args.project in projects:

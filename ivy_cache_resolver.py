@@ -355,19 +355,42 @@ class Cache:
                 else:
                     raise ValueError('Unexpected classpath file. Ivy dependency resolution may have failed. Lines = ', lines)
 
-    def resolve(self, id):
+    def resolve(self, id, trace = []):
         # Always make a recursive descent on all declared dependencies.
         # In effect, if a module is present, then so is all its
         # dependencies in all configurations. This will pull down
         # more resources than needed (e.g. test dependencies), but
         # change if/when it becomes a problem.
+
+        stop_transitive = {
+            'com.h2database:h2:2.2.220'
+        }
+        
+        #print("Resolve", id.coord())
         coord = id.coord()
         if not coord in self._modules:
             path   = self.resolve_ivy_xml(id)
             module = Module(self, id, XMLFileLoader(path))
             self._modules[coord] = module
-            for dep_id in module.declared_dependencies():
-                self.resolve(dep_id)
+            if not (len(trace) > 1 and trace[-2].coord() in stop_transitive):
+                trace.append(id)
+                for dep_id in module.declared_dependencies():
+                    try:
+                        # TODO: Move from here; Move this to documentation.
+                        #problematic_deps = {
+                        #    'jdom:jdom:b10',    # Issue with remote pom file (typo)
+                        #    'stax:stax-ri:1.0', # Issue with remote repository (not available)
+                        #    'com.oracle:toplink-essentials:2.41', # Not available?
+                        #    'com.oracle:oc4j:1.0',                # Not available?
+                        #}
+                        #if dep_id.coord() in problematic_deps:
+                        #    continue
+                        self.resolve(dep_id, trace)
+                    except OSError as e:
+                        print("Resolve failed", id.coord(), dep_id.coord())
+                        continue
+                trace.pop()
+
         return self._modules[coord]
 
     # Intended for standalone files.
@@ -446,11 +469,18 @@ class GraphVisitor:
         self._build_order.append(module.id)
 
     def visit(self, module, verbose = False, indent = '', trace = []):
+        stop_transitive = { 'com.h2database:h2:2.2.220' }
+        
         coord = module.id.coord()
         if not self._enter(module, verbose, indent, trace):
             return
         dependencies              = module.declared_dependencies()
         self._dependencies[coord] = dependencies
+
+        if len(trace) > 0 and trace[-1].coord() in stop_transitive:
+            self._leave(module, trace)
+            return
+        
         trace.append(module.id)
         for dep in dependencies:
             self.visit(
@@ -501,6 +531,7 @@ if __name__ == "__main__":
     if args.file:
         module = cache.module_from_file(args.file)
     elif args.module:
+        # stop_transitive = { 'com.h2database:h2:2.2.220' }
         module = cache.resolve(ID.from_coord(args.module))
     else:
         pass

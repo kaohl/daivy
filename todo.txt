@@ -5,6 +5,38 @@
       locally built jars vs. ivy provided jars.
       - See 'cmpzip.py'
 
+- [ ] When downloading ivy modules, the strategy is simply to download all
+      dependencies independent of configuration, recursively, for the whole
+      dependency graph given a start module. This became problematic with the
+      com.h2database:h2:2.2.220 module, where some transitive dependencies
+      (probably in optional or test configurations) are either
+        (1) not available in any repository that I checked
+            - https://mvnrepository.com
+            - https://nexus.d4science.org/nexus/content/repositories
+        (2) looks available but the listed repository for an artifact is unavailable
+        (3) available but can't be aquired because of errors in retrieved pom
+            which can't be overridden locally and makes ivy stop (jdom:jdom:b10).
+            See https://repo1.maven.org/maven2/jdom/jdom/b10/
+            or local copy inside ivy-cache (can't be modified locally).
+            
+      * Alternative strategy:
+        - 1. Apply configurations on the top level module to reduce the graph to
+             a list of jar files,
+          2. Instead of considering all dependency elements in each module, figure
+             out which jar files each dependency element provides and only recurse
+             on those paths.
+          * If we only run 'compile' and 'runtime' configs then this should atleast
+            drop all test dependencies in transitive modules.
+      * Alternative strategy:
+        - Compute configuration mappings
+
+      Current workaround
+        - I have added a check to prevent transitive modules from being
+          resolved for com.h2database:h2:2.2.220 to avoid the issue.
+
+      - [ ] (Remove?) This also led to adding a local ant:ant:1.6 module
+
+
 # Reproducible builds
 - [/] To create a reproducible build, the caller must specify which dependencies
       are to be built from source when building a specific benchmark, and which

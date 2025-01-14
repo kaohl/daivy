@@ -18,6 +18,7 @@ import tools
 import extract_batik
 import extract_lucene
 import extract_xalan
+import extract_h2
 
 bm_data_files = {
     'batik' : (
@@ -39,10 +40,19 @@ bm_data_files = {
         'https://www.w3.org/TR/2001/WD-xforms-20010608',
         'WD-xforms-20010608.zip',
         '1473de8fd3df1ca1780947bc4f317d61'
+    ),
+    'h2' : (
+
     )
 }
 
 def download_bm_data(name):
+    if not name in bm_data_files:
+        # In this case, the benchmark driver
+        # probably has the workload in code?
+        print("Benchmark has no data")
+        return
+
     url  = bm_data_files[name][0]
     file = bm_data_files[name][1]
     md5  = bm_data_files[name][2]
@@ -106,6 +116,15 @@ def extract_bm(name, dependencies):
     for dep_id, dep_attrib in dependencies:
         bp.dep(dep_id, dep_attrib)
     ivy.ResolverModule.add_module(bp.build())
+
+def extract_bm_h2():
+    attrib = {
+        'force': 'true',
+        'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
+    }
+    extract_bm('h2', [
+        (ivy.ID('com.h2database', 'h2', '2.2.220'), copy.deepcopy(attrib)),
+    ])
 
 def extract_bm_xalan():
     attrib = {
@@ -189,17 +208,22 @@ def extract_harness():
     ivy.ResolverModule.add_module(bp.build())
 
 def extract_resources():
-    extract_harness()
+    #extract_harness()
+    #
+    #extract_bm_batik()
+    #extract_batik.extract_lib_batik()
+    #
+    #extract_bm_luindex()
+    #extract_bm_lusearch()
+    #extract_lucene.extract_lib_lucene()
+    #
+    #extract_bm_xalan()
+    #extract_xalan.extract_lib_xalan()
 
-    extract_bm_batik()
-    extract_batik.extract_lib_batik()
+    extract_bm_h2()
+    #extract_h2.extract_lib_h2()
 
-    extract_bm_luindex()
-    extract_bm_lusearch()
-    extract_lucene.extract_lib_lucene()
-
-    extract_bm_xalan()
-    extract_xalan.extract_lib_xalan()
+    #print("Uncomment target to extract")
 
 if __name__ == '__main__':
     extract_resources()
