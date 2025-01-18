@@ -61,7 +61,7 @@ def zip(src, dst):
 def jar(src, dst):
     print("[jar]", str(src), str(dst))
     _zip(src, dst) # Call internal to avoid collision with builtin 'zip'.
-    shutil.copy2(str(dst) + '.zip', dst)
+    shutil.move(str(dst) + '.zip', dst)
 
 def patch(src, dst):
     print("[patch]", src, dst)

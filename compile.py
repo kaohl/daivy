@@ -443,6 +443,14 @@ class Project:
         if build_zip.exists():
             os.remove(build_zip)
 
+    def export(self, folder):
+        if not folder.is_dir():
+            raise ValueError("Expected directory")
+        src = self.path / 'build.zip'
+        dst = folder / (Path(self.artifact()).stem + "-build.zip")
+        print("Copy", src, dst)
+        shutil.copy2(src, dst)
+
     def test(self):
         raise ValueError('Unimplemented')
 

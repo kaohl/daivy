@@ -301,18 +301,19 @@ if __name__ == '__main__':
         help = "Build context folder for export/import")
     parser.add_argument('--export' , required = False, action = "store_true",
         help = "Export project source code and eclipse configuration")
+    parser.add_argument('--export-path', required = False,
+        help = "Path to folder into which the export archive is written.")
     parser.add_argument('--clean', required = False, action = "store_true",
         help = "Clean project before building")
     parser.add_argument('--verbose', required = False, action = "store_true",
         help = "Print extra information during execution")
+    parser.add_argument('--info', required = False,
+        help = "Folder into which 'build-order.txt' and 'source-projects.txt' are written if specified")
     args = parser.parse_args()
 
     if args.verbose:
         print("Using build context")
         print("  path = " + args.context)
-
-    if args.export:
-        raise ValueError('Export is unimplemented')
 
     Project._global_build_context = BuildContext(args.context, args)
 
@@ -342,14 +343,46 @@ if __name__ == '__main__':
         ivy.ID.from_coord(args.project),
         verbose = args.verbose
     )
-
+    
     if args.verbose:
         print("Build order" + os.linesep + os.linesep.join([
             "  " + p.coord() for p in build_order if p.coord() in projects
         ]))
 
+    if args.info:
+        info_dir = Path(args.info)
+        if not info_dir.is_dir():
+            raise ValueError("Expected info to be a directory", args.info)
+        with open(info_dir / 'build-order.txt', 'w') as build_order_txt:
+            with open(info_dir / 'source-projects.txt', 'w') as source_projects_txt:
+                for p in build_order:
+                    pc = p.coord()
+                    build_order_txt.write(pc + os.linesep)
+                    if pc in projects:
+                        source_projects_txt.write(pc + os.linesep)
+
     for coord in [id.coord() for id in build_order]:
         if coord in projects:
             project = projects[coord]()
             project.build(args.clean)
+
+    # Note that 'export' depends on 'build' to generate 'build.zip'
+    # in each source project. All source projects associated with
+    # the specified project are held by build_order.
+    if args.export:
+        if args.export_path:
+            ep = Path(args.export_path)
+            if not ep.is_dir():
+                raise ValueError("Export path must be a directory.")
+            for p in build_order:
+                pc = p.coord()
+                if args.verbose:
+                    if pc in projects:
+                        print("[export] Exporting", pc, "into", str(ep))
+                    else:
+                        print("[export] No source available for project", pc)
+                if pc in projects:
+                    projects[pc]().export(ep)
+        else:
+            raise ValueError('The --export action requires option --export-path <folder>')
 

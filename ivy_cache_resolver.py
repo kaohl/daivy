@@ -493,6 +493,8 @@ if __name__ == "__main__":
                         help = "Print classpath if specified")
     parser.add_argument("--confs"          ,  required = False, nargs = "+",
                         help = "Enabled master configurations")
+    parser.add_argument("--classpath-file", required = False,
+                        help = "File to which classpath entries are written, if specified")
 
     args  = parser.parse_args()
     cache = Cache(args.cache) if args.cache else Cache()
@@ -508,9 +510,17 @@ if __name__ == "__main__":
     if args.print:
         cache.print_dependencies(module, args.verbose)
 
-    if args.classpath and args.confs:
-        conf_deps = cache.resolve_dependencies(ID.from_coord(args.module), args.confs)
-        print("Classpath", args.confs)
-        for d in conf_deps:
-            print('  ' + d)
+    if args.classpath:
+        if args.confs:
+            conf_deps = cache.resolve_dependencies(ID.from_coord(args.module), args.confs)
+            if args.classpath_file:
+                print("Writing classpath to file", args.classpath_file)
+                with open(args.classpath_file, 'w') as f:
+                    f.write(os.linesep.join(conf_deps))
+            else:
+                print("Classpath", args.confs)
+                for d in conf_deps:
+                    print('  ' + d)
+        else:
+            print("Expected missing --confs argument since --classpath was specified.")
 

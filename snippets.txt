@@ -1,0 +1,7 @@
+
+# Resolve dependencies
+./ivy_cache_resolver.py -m "org.jacop:jacop:4.6.0" --classpath --confs <confs>
+
+# Build and export all source projects in 'dacapo:batik:1.0' into 'export-path'
+./build.py --project dacapo:batik:1.0 --context context --clean --verbose --export --export-path export-test
+
