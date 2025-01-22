@@ -66,11 +66,14 @@ def jar(src, dst):
 def patch(src, dst):
     print("[patch]", src, dst)
 
-def compute_md5(target):
-    print("[digest]", str(target))
+def digest(target, alg = 'md5'):
+    print("[digest " + alg + "]", str(target))
     with open(target, "rb") as f:
-        digest = hashlib.file_digest(f, "md5")
+        digest = hashlib.file_digest(f, alg)
         return digest.hexdigest()
+
+def compute_md5(target):
+    return digest(target, 'md5')
 
 def is_md5(target, md5):
     return md5 == compute_md5(target)

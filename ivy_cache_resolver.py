@@ -15,7 +15,19 @@ class ResolverModule:
     # Add specified module to 'daivy' resolver.
     def add_module(module):
         tree = ET.ElementTree(module.load_xml())
-        tree.write(ResolverModule(module.id, clear = True).ivy_xml_path)
+        path = ResolverModule(module.id, clear = True).ivy_xml_path
+        tree.write(path)
+
+        # Deploy empty file as jar file to avoid errors in the ivy resolver.
+        # This empty file has no other meaning. The jar provided by the ivy-
+        # cache is always overridden after a source build, even if the artifact
+        # was reused from the project local cache in 'projects/<project>/var/'.
+
+        jars = path.parent / 'jars'
+        jars.mkdir()
+        jar_name = '-'.join([module.id.mod, module.id.rev]) + '.jar'
+        with open(jars / jar_name, 'w'):
+            pass
     
     def __init__(self, id, clear):
         if id is None or len(id.org) == 0 or len(id.mod) == 0 or len(id.rev) == 0:

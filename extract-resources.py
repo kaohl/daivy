@@ -103,6 +103,25 @@ def extract_bm(name, dependencies):
     bp.conf({ 'name': 'master' })
     bp.conf({ 'name': 'compile' })
     bp.conf({ 'name': 'runtime', 'extends' : 'compile' })
+
+    #harness_dependencies = [
+    #    ivy.ID('javax.xml.bind', 'jaxb-api', '2.3.0'),
+    #    ivy.ID('com.sun.activation','javax.activation','1.2.0'),
+    #    ivy.ID('com.sun.xml.bind','jaxb-core','2.3.0'),
+    #    ivy.ID('com.sun.xml.bind','jaxb-impl','2.3.0'),
+    #    ivy.ID('org.hdrhistogram','HdrHistogram','2.1.12'),
+    #    ivy.ID('com.google.code.java-allocation-instrumenter','java-allocation-instrumenter','3.3.4'),
+    #    ivy.ID('commons-cli','commons-cli','1.5.0')
+    #]
+    #for dep_id in harness_dependencies:
+    #    bp.dep(dep_id, {
+    #        'force': 'true',
+    #        'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
+    #    })
+    bp.dep(ivy.ID('dacapo', 'harness', '1.0'), {
+        'force': 'true',
+        'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
+    })
     for dep_id, dep_attrib in dependencies:
         bp.dep(dep_id, dep_attrib)
     ivy.ResolverModule.add_module(bp.build())
@@ -189,17 +208,17 @@ def extract_harness():
     ivy.ResolverModule.add_module(bp.build())
 
 def extract_resources():
-    extract_harness()
+    #extract_harness()
 
     extract_bm_batik()
-    extract_batik.extract_lib_batik()
+    #extract_batik.extract_lib_batik()
 
     extract_bm_luindex()
     extract_bm_lusearch()
-    extract_lucene.extract_lib_lucene()
+    #extract_lucene.extract_lib_lucene()
 
     extract_bm_xalan()
-    extract_xalan.extract_lib_xalan()
+    #extract_xalan.extract_lib_xalan()
 
 if __name__ == '__main__':
     extract_resources()

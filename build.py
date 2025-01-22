@@ -309,6 +309,8 @@ if __name__ == '__main__':
         help = "Print extra information during execution")
     parser.add_argument('--info', required = False,
         help = "Folder into which 'build-order.txt' and 'source-projects.txt' are written if specified")
+    parser.add_argument('--import-path', required = False,
+        help = "Import folder with patched '-build.zip' files.")
     args = parser.parse_args()
 
     if args.verbose:
@@ -343,7 +345,7 @@ if __name__ == '__main__':
         ivy.ID.from_coord(args.project),
         verbose = args.verbose
     )
-    
+
     if args.verbose:
         print("Build order" + os.linesep + os.linesep.join([
             "  " + p.coord() for p in build_order if p.coord() in projects

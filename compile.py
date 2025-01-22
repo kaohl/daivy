@@ -178,11 +178,10 @@ class Config:
     def properties(self):
         return Config._load_project_properties(self.context, self.project)
 
-    # Return the file path for the patch file for specified artifact.
-    # If an artifact id is not specified, default is assumed.
-    def patch_file_path(self, id = None):
-        id = self.id if id is None else id
-        return self.context.path / ('-'.join([id.mod, id.rev]) + '.patch')
+    def import_location(self):
+        if not self.context.args.import_path is None:
+            return Path(self.context.args.import_path)
+        return None
 
 class BuildContext:
     def __init__(self, path, args):
@@ -326,14 +325,20 @@ class Project:
     #   src/{main,test}/java/
     #   src/{main,test}/resources/
     #   dist/
-    def _create_source_tree(self, patch):
-        build_zip = self.path / 'build.zip'
-        build     = self.path / 'build'
+    def _create_source_tree(self):
+        build_zip       = self.path / 'build.zip'
+        build           = self.path / 'build'
+        import_location = self.config().import_location()
 
         if build.exists():
             shutil.rmtree(build)
 
-        if not build_zip.exists():
+        if not import_location is None and (import_location / self.export_name()).exists():
+            build.mkdir()
+            p = tools.unzip(import_location / self.export_name(), build)
+            print("Unzipped to", p)
+        elif not build_zip.exists():
+            print("Create build.zip")
             self._copy_sources()
             self._copy_resources()
             # TODO: Should we really do this here? Not instead when compiling?
@@ -343,14 +348,6 @@ class Project:
             build.mkdir()
             p = tools.unzip(build_zip, build)
             print("Unzipped to", p)
-            
-
-        if not patch is None and patch.exists():
-            # NOTE
-            # We don't patch the 'ivy.xml' file.
-            # It is not necessary for simple refactoring.
-            # Also, simpler to use global|project build properties.
-            tools.patch(patch, build / 'src')
 
     def _create_binary_tree(self):
         build = self.path / 'build'
@@ -374,8 +371,8 @@ class Project:
                 print("Copy (binary resources)", src, dst)
                 shutil.copy2(src, dst)
 
-    def _compile(self, patch):
-        self._create_source_tree(patch)
+    def _compile(self):
+        self._create_source_tree()
         self._create_binary_tree()
 
         build     = self.path / 'build'
@@ -389,27 +386,24 @@ class Project:
         javac.modulepath(self._compile_modulepath)
         javac.compile()
 
-    def _package(self, patch, artifact):
-        self._compile(patch)
+    def _package(self, artifact):
+        self._compile()
         jar_src = self.path / 'build/dist'
         jar_dst = artifact
         tools.jar(jar_src, jar_dst)
 
-        if not patch is None and patch.exists():
-            cpy_src = patch
-            cpy_dst = artifact.parent / patch.name
-            print("Copy Patch", cpy_src, cpy_dst)
-            shutil.copy2(cpy_src, cpy_dst)
-
     def _deploy(self):
-        patch    = self.config().patch_file_path()
-        artifact = self.path / 'var' / self.artifact()
-        if not patch is None and patch.exists():
-            patch_hash = tools.compute_patch_hash(patch)
+        artifact        = None
+        import_location = self.config().import_location()
+        if not import_location is None and (import_location / self.export_name()).exists():
+            patch      = import_location / self.export_name()
+            patch_hash = tools.digest(patch, 'md5')
             artifact   = self.path / 'var' / patch_hash / self.artifact()
+        else:
+            artifact = self.path / 'var' / self.artifact()
 
         if not artifact.exists():
-            self._package(patch, artifact)
+            self._package(artifact)
 
         self._update_build_cache(artifact)
 
@@ -443,11 +437,14 @@ class Project:
         if build_zip.exists():
             os.remove(build_zip)
 
+    def export_name(self):
+        return Path(self.artifact()).stem + "-build.zip"
+
     def export(self, folder):
         if not folder.is_dir():
             raise ValueError("Expected directory")
         src = self.path / 'build.zip'
-        dst = folder / (Path(self.artifact()).stem + "-build.zip")
+        dst = folder / self.export_name()
         print("Copy", src, dst)
         shutil.copy2(src, dst)
 
