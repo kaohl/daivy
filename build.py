@@ -43,18 +43,18 @@ def add_harness(bm):
     bm_rt_cp = [x for x in bm._runtime_classpath]
 
     # Harness runtime dependencies
-    hs_rt_cp = ivy.cache().resolve_dependencies(ivy.ID('dacapo', 'harness', '1.0'), ['runtime'])
-
-    bm.extend_compile_classpath(ivy.cache().resolve_dependencies(ivy.ID('dacapo', 'harness', '1.0'), ['compile']))
-    bm.extend_runtime_classpath(hs_rt_cp)
+    #hs_rt_cp = ivy.cache().resolve_dependencies(ivy.ID('dacapo', 'harness', '1.0'), ['runtime'])
+    #
+    #bm.extend_compile_classpath(ivy.cache().resolve_dependencies(ivy.ID('dacapo', 'harness', '1.0'), ['compile']))
+    #bm.extend_runtime_classpath(hs_rt_cp)
 
     stem = Path(bm.artifact()).stem
 
     classpath = ' '.join(
         # Paths are relative bm launcher deployed in:
         #   <context>/<bm-artifact-name>/
-        [ str(Path(stem) / 'jar' / Path(x).name) for x in bm_rt_cp ] +
-        [ str(Path(stem) / 'jhs' / Path(x).name) for x in hs_rt_cp ]
+        [ str(Path(stem) / 'jar' / Path(x).name) for x in bm_rt_cp ]
+        #+ [ str(Path(stem) / 'jhs' / Path(x).name) for x in hs_rt_cp ]
     )
 
     bm.manifest = Manifest({
@@ -97,10 +97,10 @@ def bm_deploy(context, project):
     jar.mkdir()
     jhs.mkdir()
 
-    harness_runtime = ivy.cache().resolve_dependencies(ivy.ID('dacapo', 'harness', '1.0'), ['runtime'])
-    for d in harness_runtime:
-        shutil.copy2(d, jhs / Path(d).name)
-        print("jhs:", jhs / Path(d).name)
+    #harness_runtime = ivy.cache().resolve_dependencies(ivy.ID('dacapo', 'harness', '1.0'), ['runtime'])
+    #for d in harness_runtime:
+    #    shutil.copy2(d, jhs / Path(d).name)
+    #    print("jhs:", jhs / Path(d).name)
 
     batik_runtime = ivy.cache().resolve_dependencies(ivy.ID('dacapo', bm_name, '1.0'), ['runtime'])
     for d in batik_runtime:
