@@ -196,7 +196,7 @@ def batik_1_16():
     batik.extend_runtime_classpath(ivy.cache().resolve_dependencies(batik_id, ['runtime']))
     batik.manifest = Manifest({
         "Manifest-Version"        : "1.0",
-        "Created-By"              : "Alfine",
+        "Created-By"              : "Daivy",
         "Implementation-Title"    : "org.apache.xmlgraphics:batik-all",
         "Implementation-Version"  : "1.16",
         "Implementation-Vendor-Id": "org.apache.xmlgraphics",
@@ -280,7 +280,7 @@ def xalan_2_7_2():
     xalan.extend_runtime_classpath(ivy.cache().resolve_dependencies(xalan_id, ['runtime,optional']) + libs)
     xalan.manifest = Manifest({
         "Manifest-Version"        : "1.0",
-        "Created-By"              : "Alfine",
+        "Created-By"              : "Daivy",
         "Implementation-Title"    : "org.apache.xalan",
         "Implementation-Version"  : "2.7.2",
         "Implementation-Vendor-Id": "org.apache.xalan",
@@ -292,6 +292,29 @@ def xalan_2_7_2():
         #       Also, we don't need this manifest since we are not going to invoke as standalone jar.
     })
     return xalan
+
+def jacop_4_10_0():
+    jacop_id = ivy.ID('org.jacop', 'jacop', '4.10.0')
+    jacop    = Project('projects/jacop-4.10.0', jacop_id)
+    jacop.sources(
+        jacop.path / "src/main/java",
+        include = ['*.java']
+    )
+    # Include test sources. Requires 'test' dependencies. (TODO: Should we split compilation into main and test?)
+    jacop.sources(
+        jacop.path / "src/test/java",
+        include = ['*.java']
+    )
+    jacop.extend_compile_classpath(ivy.cache().resolve_dependencies(jacop_id, ['compile', 'test']))
+    jacop.extend_runtime_classpath(ivy.cache().resolve_dependencies(jacop_id, ['runtime']))
+    jacop.manifest = Manifest({
+        "Manifest-Version"        : "1.0",
+        "Created-By"              : "Daivy",
+        "Implementation-Title"    : "org.jacop:jacop",
+        "Implementation-Version"  : "4.10.0",
+        "url"                     : "http://jacop.osolpro.com"
+    })
+    return jacop
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -320,10 +343,30 @@ if __name__ == '__main__':
     Project._global_build_context = BuildContext(args.context, args)
 
     projects = {
+        # Note
+        # The 'dacapo' prefix in the following project coordinates is intended
+        # to show that the project is a benchmark based on the benchmark harness
+        # provided by dacapobench, which means that the executable benchmark jar
+        # files have the same command line interface.
+        #
+        # Benchmark modules are served from a local provider overriding external providers.
+        #
+        # Note
+        # If it is not possible to find a project through an external provider,
+        # an override can be placed in the local provider. I have used this on
+        # occasions where upstream ivy or pom files have errors which prevents
+        # ivy from installing the module.
+
+        # The following benchmarks are also provided by the referenced dacapobench version:
         'dacapo:batik:1.0'                                : lambda: bm_build('batik'),
         'dacapo:luindex:1.0'                              : lambda: bm_build('luindex'),
         'dacapo:lusearch:1.0'                             : lambda: bm_build('lusearch'),
         'dacapo:xalan:1.0'                                : lambda: bm_build('xalan'),
+
+        # The following benchmarks are provided by this suite.
+        'dacapo:jacop:1.0'                                : lambda: bm_build('jacop'),
+
+        # The following projects are libraries referenced by benchmark projects.
         'org.apache.xmlgraphics:batik-all:1.16'           : batik_1_16,
         'org.apache.lucene:lucene-analysis-common:9.10.0' : lambda: lucene_9_10_0('analysis-common'),
         'org.apache.lucene:lucene-backward-codecs:9.10.0' : lambda: lucene_9_10_0('backward-codecs'),
@@ -336,14 +379,19 @@ if __name__ == '__main__':
         'org.apache.lucene:lucene-queryparser:9.10.0'     : lambda: lucene_9_10_0('queryparser'),
         'org.apache.lucene:lucene-sandbox:9.10.0'         : lambda: lucene_9_10_0('sandbox'),
         'xalan:xalan:2.7.2'                               : xalan_2_7_2,
+        'org.jacop:jacop:4.10.0'                          : jacop_4_10_0,
     }
 
     if not args.project in projects:
         raise ValueError("Missing build for specified project", args.project)
 
+    if args.verbose:
+        print("Computing build order ...")
+
     build_order = ivy.cache().compute_build_order(
         ivy.ID.from_coord(args.project),
-        verbose = args.verbose
+        verbose = args.verbose,
+        depth_limit = 4
     )
 
     if args.verbose:

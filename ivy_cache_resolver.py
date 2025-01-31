@@ -18,6 +18,8 @@ class ResolverModule:
         path = ResolverModule(module.id, clear = True).ivy_xml_path
         tree.write(path)
 
+        print("Installing locally provided ivy file", str(path))
+
         # Deploy empty file as jar file to avoid errors in the ivy resolver.
         # This empty file has no other meaning. The jar provided by the ivy-
         # cache is always overridden after a source build, even if the artifact
@@ -367,7 +369,7 @@ class Cache:
                 else:
                     raise ValueError('Unexpected classpath file. Ivy dependency resolution may have failed. Lines = ', lines)
 
-    def resolve(self, id):
+    def resolve(self, id, limit = 1, depth = 0):
         # Always make a recursive descent on all declared dependencies.
         # In effect, if a module is present, then so is all its
         # dependencies in all configurations. This will pull down
@@ -375,11 +377,13 @@ class Cache:
         # change if/when it becomes a problem.
         coord = id.coord()
         if not coord in self._modules:
+            if depth >= limit:
+                return None
             path   = self.resolve_ivy_xml(id)
             module = Module(self, id, XMLFileLoader(path))
             self._modules[coord] = module
             for dep_id in module.declared_dependencies():
-                self.resolve(dep_id)
+                self.resolve(dep_id, limit, depth + 1)
         return self._modules[coord]
 
     # Intended for standalone files.
@@ -427,9 +431,9 @@ class Cache:
             for key in sorted(visited):
                 print(" ", key)
 
-    def compute_build_order(self, id, verbose = False):
+    def compute_build_order(self, id, verbose = False, depth_limit = -1):
         visitor = GraphVisitor()
-        visitor.visit(self.resolve(id), verbose)
+        visitor.visit(self.resolve(id, depth_limit), verbose, depth_limit)
         return visitor._build_order
 
 class GraphVisitor:
@@ -439,37 +443,46 @@ class GraphVisitor:
         self._dependencies = dict() # { <coord> : { <coord> } }
         self._build_order  = []     # [ <id> ]
 
-    def _enter(self, module, verbose, indent, trace):
+    def _enter(self, module, verbose, indent, trace, is_at_limit):
         coord = module.id.coord()
         if coord not in self._visited_from:
             self._visited_from[coord] = []
         self._visited_from[coord].append([x for x in trace])
-
         if coord in self._visited:
             if verbose:
                 print(indent[:-2] + "^ " + coord)
             return False
         if verbose:
-            print(indent + coord)
+            if is_at_limit:
+                print(indent[:-2] + "! " + coord)
+            else:
+                print(indent + coord)
         self._visited.add(coord)
         return True
 
     def _leave(self, module, trace):
         self._build_order.append(module.id)
 
-    def visit(self, module, verbose = False, indent = '', trace = []):
+    def visit(self, module, verbose = False, limit = 1, indent = '', trace = [], depth = 0):
         coord = module.id.coord()
-        if not self._enter(module, verbose, indent, trace):
+        if not self._enter(module, verbose, indent, trace, depth == limit):
+            return
+        # Check +1 since resolve(..., depth + 1)
+        # which returns None if depth + 1 == limit.
+        if depth + 1 >= limit:
+            self._leave(module, trace)
             return
         dependencies              = module.declared_dependencies()
         self._dependencies[coord] = dependencies
         trace.append(module.id)
         for dep in dependencies:
             self.visit(
-                module._cache.resolve(dep),
+                module._cache.resolve(dep, limit, depth + 1),
                 verbose,
+                limit,
                 indent + ' '*2,
-                trace
+                trace,
+                depth + 1
             )
         trace.pop()
         self._leave(module, trace)

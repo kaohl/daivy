@@ -11,20 +11,80 @@ from zipfile import ZipFile
 def cwd_prefix(cwd):
     return '../' * len(cwd.parts)
 
-def javacc_7_0_12(rel_cwd_path, options_map, inputfile_list, verbose = False):
+def javacc(rel_cwd_path, options_map, inputfile_list, verbose, javacc_jar, command):
     parts = [
         'java',
         '-cp',
-        cwd_prefix(rel_cwd_path) + 'tools/javacc-7.0.12/javacc.jar',
-        'javacc'
+        cwd_prefix(rel_cwd_path) + javacc_jar,
+        command
     ]
     options_list = [
         '-' + "=".join([opt, val]) for (opt, val) in options_map.items()
     ]
-    command = " ".join(parts + options_list + inputfile_list)
+    cmd = " ".join(parts + options_list + inputfile_list)
     if verbose:
-        print("[javacc]", command)
-    subprocess.run(command, shell = True, cwd=rel_cwd_path)
+        print("[javacc {}]".format(command), cmd)
+    subprocess.run(cmd, shell = True, cwd=rel_cwd_path)
+
+def javacc_jjtree_7_0_12(rel_cwd_path, options_map, inputfile_list, verbose = False):
+    javacc(
+        rel_cwd_path,
+        options_map,
+        inputfile_list,
+        verbose,
+        'tools/javacc-7.0.12/javacc.jar',
+        'jjtree'
+    )
+
+def javacc_7_0_12(rel_cwd_path, options_map, inputfile_list, verbose = False):
+    javacc(
+        rel_cwd_path,
+        options_map,
+        inputfile_list,
+        verbose,
+        'tools/javacc-7.0.12/javacc.jar',
+        'javacc'
+    )
+
+def javacc_jjtree_4_2(rel_cwd_path, options_map, inputfile_list, verbose = False):
+    javacc(
+        rel_cwd_path,
+        options_map,
+        inputfile_list,
+        verbose,
+        'tools/javacc-4.2/bin/lib/javacc.jar',
+        'jjtree'
+    )
+
+def javacc_4_2(rel_cwd_path, options_map, inputfile_list, verbose = False):
+    javacc(
+        rel_cwd_path,
+        options_map,
+        inputfile_list,
+        verbose,
+        'tools/javacc-4.2/bin/lib/javacc.jar',
+        'javacc'
+    )
+
+def javacc_jjtree_5_0(rel_cwd_path, options_map, inputfile_list, verbose = False):
+    javacc(
+        rel_cwd_path,
+        options_map,
+        inputfile_list,
+        verbose,
+        'tools/javacc-5.0/javacc-5.0.jar',
+        'jjtree'
+    )
+
+def javacc_5_0(rel_cwd_path, options_map, inputfile_list, verbose = False):
+    javacc(
+        rel_cwd_path,
+        options_map,
+        inputfile_list,
+        verbose,
+        'tools/javacc-5.0/javacc-5.0.jar',
+        'javacc'
+    )
 
 def untar(src, dst):
     if not tarfile.is_tarfile(src):

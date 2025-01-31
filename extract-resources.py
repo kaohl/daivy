@@ -18,6 +18,7 @@ import tools
 import extract_batik
 import extract_lucene
 import extract_xalan
+import extract_jacop
 
 bm_data_files = {
     'batik' : (
@@ -57,44 +58,28 @@ def download_bm_data(name):
         print("Please manually remove the unpacked data to redeploy from archive")
     return Path(dst)
 
-def extract_bm(name, dependencies):
-    bm             = name
-    src_bms        = Path('dacapobench/benchmarks/bms')
-    src_bm         = src_bms / bm
-    src_bm_cnf     = src_bm  / (bm + '.cnf')
-    src_bm_harness = src_bm  / 'harness'
-    src_bm_src     = src_bm  / 'src'
+resources = {
+    'jacop.zip'      : 'e54d1cb6ff9cea9b324a6d44fa2eb940',
+    'jacop-data.zip' : '94c65777236e5720f7bf75ac8f1cb32d'
+}
 
-    dst_bm          = Path('projects') / bm
-    dst_bm_harness  = dst_bm / 'harness'
-    dst_bm_src      = dst_bm / 'src'
-    dst_bm_cnf      = dst_bm / (bm + '.cnf')
-    dst_bm_data     = dst_bm / 'data'
-    dst_bm_data_dat = dst_bm / 'data' / 'dat'
+def unpack_resource(file, dst):
+    md5 = resources[file]
+    src = Path('resources') / file
+    dst = Path(dst)
+    if not dst.exists():
+        if not tools.digest(src) == md5:
+            raise ValueError(
+                "Unexpected checksum for file: '" + str(src) + "'.",
+                "Please update the resource table with the correct checksum, or revert the changed resource to a matching state to proceed."
+            )
+        tools.unzip(src, dst)
+    else:
+        print("Reusing existing unpacked data archive '" + str(dst) + "'")
+        print("Please manually remove the unpacked data to redeploy from archive")
+    return Path(dst)
 
-    if dst_bm.exists():
-        shutil.rmtree(dst_bm)
-
-    # Download and unpack data
-    # Note: Data is symlinked into deployment to save disk space. See 'build.py'.
-    data_root = download_bm_data(name)
-
-    # Extract benchmark driver (harness)
-    shutil.copytree(src_bm_harness, dst_bm_harness, dirs_exist_ok = True)
-
-    # Extract benchmark driver (source?)
-    if src_bm_src.exists():
-        shutil.copytree(src_bm_src, dst_bm_src, dirs_exist_ok = True)
-
-    # Extract benchmark config.
-    shutil.copy2(src_bm_cnf, dst_bm_cnf)
-
-    # We append the version to complete the config. See dacapo build.
-    # In dacapo, this version string seems to resolve to a string of
-    # library versions. See deployment in build context instead.
-    with open(dst_bm_cnf, 'a') as f:
-        f.write('  version "";')
-
+def install_benchmark_module(name, dependencies):
     # Provide benchmark application through local ivy 'daivy' resolver.
     id = ivy.ID('dacapo', name, '1.0') # TODO: Use dacapo release version?
     bp = ivy.blueprint()
@@ -103,7 +88,6 @@ def extract_bm(name, dependencies):
     bp.conf({ 'name': 'master' })
     bp.conf({ 'name': 'compile' })
     bp.conf({ 'name': 'runtime', 'extends' : 'compile' })
-
     #harness_dependencies = [
     #    ivy.ID('javax.xml.bind', 'jaxb-api', '2.3.0'),
     #    ivy.ID('com.sun.activation','javax.activation','1.2.0'),
@@ -126,12 +110,59 @@ def extract_bm(name, dependencies):
         bp.dep(dep_id, dep_attrib)
     ivy.ResolverModule.add_module(bp.build())
 
+def extract_bm_from_location(name, src_location, dependencies):
+    bm             = name
+    src_bm         = src_location
+    src_bm_cnf     = src_bm  / (bm + '.cnf')
+    src_bm_harness = src_bm  / 'harness'
+    src_bm_src     = src_bm  / 'src'
+
+    dst_bm          = Path('projects') / bm
+    dst_bm_harness  = dst_bm / 'harness'
+    dst_bm_src      = dst_bm / 'src'
+    dst_bm_cnf      = dst_bm / (bm + '.cnf')
+    dst_bm_data     = dst_bm / 'data'
+    dst_bm_data_dat = dst_bm / 'data' / 'dat'
+
+    if dst_bm.exists():
+        shutil.rmtree(dst_bm)
+
+    # Extract benchmark driver (harness)
+    shutil.copytree(src_bm_harness, dst_bm_harness, dirs_exist_ok = True)
+
+    # Extract benchmark driver (source?)
+    if src_bm_src.exists():
+        shutil.copytree(src_bm_src, dst_bm_src, dirs_exist_ok = True)
+
+    # Extract benchmark config.
+    shutil.copy2(src_bm_cnf, dst_bm_cnf)
+
+    # We append the version to complete the config. See dacapo build.
+    # In dacapo, this version string seems to resolve to a string of
+    # library versions. See deployment in build context instead.
+    with open(dst_bm_cnf, 'a') as f:
+        f.write('  version "";')
+
+    install_benchmark_module(name, dependencies)
+
+def extract_dacapo_bm(name, dependencies):
+    bm             = name
+    src_bms        = Path('dacapobench/benchmarks/bms')
+    src_bm         = src_bms / bm
+    extract_bm_from_location(name, dependencies, src_bm)
+
+    # TODO: We don't have to deal with the benchmark data in this script. We could move that to build and deploy.
+
+    # Download and unpack data
+    # Note: Data is symlinked into deployment to save disk space. See 'build.py'.
+    data_root = download_bm_data(name)
+
 def extract_bm_xalan():
     attrib = {
         'force': 'true',
         'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
     }
-    extract_bm('xalan', [
+    extract_dacapo_bm('xalan', [
         (ivy.ID('xalan', 'xalan', '2.7.2'), copy.deepcopy(attrib)),
     ])
 
@@ -140,7 +171,7 @@ def extract_bm_luindex():
         'force': 'true',
         'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
     }
-    extract_bm('luindex', [
+    extract_dacapo_bm('luindex', [
         (ivy.ID('org.apache.lucene', 'lucene-core', '9.10.0')           , copy.deepcopy(attrib)),
         (ivy.ID('org.apache.lucene', 'lucene-demo', '9.10.0')           , copy.deepcopy(attrib)),
         (ivy.ID('org.apache.lucene', 'lucene-queryparser', '9.10.0')    , copy.deepcopy(attrib)),
@@ -152,7 +183,7 @@ def extract_bm_lusearch():
         'force': 'true',
         'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
     }
-    extract_bm('lusearch', [
+    extract_dacapo_bm('lusearch', [
         (ivy.ID('org.apache.lucene', 'lucene-core', '9.10.0')           , copy.deepcopy(attrib)),
         (ivy.ID('org.apache.lucene', 'lucene-demo', '9.10.0')           , copy.deepcopy(attrib)),
         (ivy.ID('org.apache.lucene', 'lucene-queryparser', '9.10.0')    , copy.deepcopy(attrib)),
@@ -164,8 +195,19 @@ def extract_bm_batik():
         'force': 'true',
         'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
     }
-    extract_bm('batik', [
+    extract_dacapo_bm('batik', [
         (ivy.ID('org.apache.xmlgraphics', 'batik-all', '1.16'), copy.deepcopy(attrib)),
+    ])
+
+def extract_bm_jacop():
+    jacop      = unpack_resource('jacop.zip', 'build/jacop') / 'jacop'
+    jacop_data = unpack_resource('jacop-data.zip', 'build/jacop-data')
+    attrib = {
+        'force': 'true',
+        'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
+    }
+    extract_bm_from_location('jacop', jacop, [
+        (ivy.ID('org.jacop', 'jacop', '4.10.0'), copy.deepcopy(attrib)),
     ])
 
 def extract_harness():
@@ -208,17 +250,20 @@ def extract_harness():
     ivy.ResolverModule.add_module(bp.build())
 
 def extract_resources():
-    #extract_harness()
+    extract_harness()
 
     extract_bm_batik()
-    #extract_batik.extract_lib_batik()
+    extract_batik.extract_lib_batik()
 
     extract_bm_luindex()
     extract_bm_lusearch()
-    #extract_lucene.extract_lib_lucene()
+    extract_lucene.extract_lib_lucene()
 
     extract_bm_xalan()
-    #extract_xalan.extract_lib_xalan()
+    extract_xalan.extract_lib_xalan()
+
+    extract_bm_jacop()
+    extract_jacop.extract_lib_jacop()
 
 if __name__ == '__main__':
     extract_resources()
