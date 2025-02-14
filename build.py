@@ -334,6 +334,8 @@ if __name__ == '__main__':
         help = "Folder into which 'build-order.txt' and 'source-projects.txt' are written if specified")
     parser.add_argument('--import-path', required = False,
         help = "Import folder with patched '-build.zip' files.")
+    parser.add_argument('--target-version', required = False,
+        help = "The target version to use when compiling source code")
     args = parser.parse_args()
 
     if args.verbose:

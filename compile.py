@@ -88,11 +88,12 @@ class Files:
         )
 
 class Javac:
-    def __init__(self):
-        self._classes     = None
-        self._sources     = []
-        self._classpath   = []
-        self._modulepath  = []
+    def __init__(self, target_version):
+        self._target_version = target_version
+        self._classes        = None
+        self._sources        = []
+        self._classpath      = []
+        self._modulepath     = []
 
     def classes(self, path):
         self._classes = Path(path)
@@ -110,6 +111,9 @@ class Javac:
 
     def compile(self):
         options = []
+
+        if self._target_version != None:
+            options.append(('-target', self._target_version))
 
         if self._classes is not None:
             options.append(('-d', self._classes))
@@ -181,6 +185,11 @@ class Config:
     def import_location(self):
         if not self.context.args.import_path is None:
             return Path(self.context.args.import_path)
+        return None
+
+    def target_version(self):
+        if not self.context.args.target_version is None:
+            return self.context.args.target_version
         return None
 
 class BuildContext:
@@ -379,7 +388,7 @@ class Project:
         dist      = build / 'dist'
         main_java = build / 'src/main/java'
 
-        javac = Javac()
+        javac = Javac(self.config().target_version())
         javac.sources([ Files.include(main_java, ['*.java']) ])
         javac.classes(str(dist))
         javac.classpath(self._compile_classpath)
