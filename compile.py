@@ -18,10 +18,10 @@ def javac_fn(options_file, sources_file):
         for line in f.readlines():
             print(line.strip())
 
-    with open(sources_file, 'r') as f:
-        print("Sources")
-        for line in f.readlines():
-            print(line.strip())
+    #with open(sources_file, 'r') as f:
+    #    print("Sources")
+    #    for line in f.readlines():
+    #        print(line.strip())
 
     cmd = " ".join([
         'echo pwd=`pwd`;',
@@ -277,7 +277,7 @@ class Project:
                     dst =  main_java / src.relative_to(gs._src)
                     if not dst.parent.exists():
                         dst.parent.mkdir(parents = True, exist_ok = True)
-                    print("Copy", src, dst)
+                    #print("Copy", src, dst)
                     shutil.copy2(src, dst)
 
     def _copy_resources(self):
@@ -292,7 +292,7 @@ class Project:
                         dst = self.path / target / src.relative_to(gs._src)
                         if not dst.parent.exists():
                             dst.parent.mkdir(parents = True, exist_ok = True)
-                        print("Copy", src, dst)
+                        #print("Copy", src, dst)
                         shutil.copy2(src, dst)
 
         for (dst, gs) in self._resources_copy_to:
@@ -301,7 +301,7 @@ class Project:
                     dst = dst / src.relative_to(gs._src)
                     if not dst.parent.exists():
                         dst.parent.mkdir(parents = True, exist_ok = True)
-                    print("Copy to", src, dst)
+                    #print("Copy to", src, dst)
                     shutil.copy2(src, dst)
 
     def classpath_attribute_value(self):
@@ -377,7 +377,7 @@ class Project:
                 dst = dist / src.relative_to(_src)
                 if not dst.parent.exists():
                     dst.parent.mkdir(parents = True, exist_ok = True)
-                print("Copy (binary resources)", src, dst)
+                #print("Copy (binary resources)", src, dst)
                 shutil.copy2(src, dst)
 
     def _compile(self):
