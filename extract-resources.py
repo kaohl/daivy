@@ -150,7 +150,7 @@ def extract_dacapo_bm(name, dependencies):
     bm             = name
     src_bms        = Path('dacapobench/benchmarks/bms')
     src_bm         = src_bms / bm
-    extract_bm_from_location(name, dependencies, src_bm)
+    extract_bm_from_location(name, src_bm, dependencies)
 
     # TODO: We don't have to deal with the benchmark data in this script. We could move that to build and deploy.
 
