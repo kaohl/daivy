@@ -301,10 +301,10 @@ def jacop_4_10_0():
         include = ['*.java']
     )
     # Include test sources. Requires 'test' dependencies. (TODO: Should we split compilation into main and test?)
-    jacop.sources(
-        jacop.path / "src/test/java",
-        include = ['*.java']
-    )
+    #jacop.sources(
+    #    jacop.path / "src/test/java",
+    #    include = ['*.java']
+    #)
     jacop.extend_compile_classpath(ivy.cache().resolve_dependencies(jacop_id, ['compile', 'test']))
     jacop.extend_runtime_classpath(ivy.cache().resolve_dependencies(jacop_id, ['runtime']))
     jacop.manifest = Manifest({
