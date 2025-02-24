@@ -330,6 +330,14 @@ class Cache:
         cache_id = ';'.join([id.coord()] + confs)
         if cache_id in self._dependency_resolver_cache:
             return self._dependency_resolver_cache[cache_id]
+        extra_dependencies = []
+        project_lib        = Path('projects') / '-'.join([id.mod, id.rev]) / 'lib'
+        if project_lib.exists() and not (len(confs) == 1 and confs[0] == 'master'): # TODO: Hacky solution...
+            for dir, folders, files in os.walk(project_lib):
+                for file in files:
+                    extra_dep = Path(os.getcwd()) / dir / file
+                    extra_dependencies.append(str(extra_dep))
+                break
         with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
             fp.close()
             cmd = " ".join([
@@ -359,7 +367,7 @@ class Cache:
                 lines = f.readlines()
                 if len(lines) < 2:
                     line  = lines[0] if len(lines) > 0 else ""
-                    value = line.strip().split(':')
+                    value = line.strip().split(':') + extra_dependencies
                     self._dependency_resolver_cache[cache_id] = value
                     print(" --- Resolved dependencies --- [", id.coord(), "] (", confs, ")")
                     for d in value:
