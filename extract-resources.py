@@ -88,6 +88,7 @@ def install_benchmark_module(name, dependencies):
     bp.conf({ 'name': 'master' })
     bp.conf({ 'name': 'compile' })
     bp.conf({ 'name': 'runtime', 'extends' : 'compile' })
+    bp.conf({ 'name': 'optional' })
     #harness_dependencies = [
     #    ivy.ID('javax.xml.bind', 'jaxb-api', '2.3.0'),
     #    ivy.ID('com.sun.activation','javax.activation','1.2.0'),
@@ -160,7 +161,7 @@ def extract_dacapo_bm(name, dependencies):
 def extract_bm_xalan():
     attrib = {
         'force': 'true',
-        'conf' : 'compile->master(*);runtime->master(*),runtime(*)'
+        'conf' : 'compile->master(*);runtime->master(*),runtime(*),optional(*)'
     }
     extract_dacapo_bm('xalan', [
         (ivy.ID('xalan', 'xalan', '2.7.2'), copy.deepcopy(attrib)),
