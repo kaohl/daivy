@@ -11,6 +11,47 @@ run the jar deployed in 'context'.
 java -jar context/batik-1.0.jar
 ```
 
+# Notes on updating benchmark resources
+## Overview
+There is a script 'resources/build-zip-from-folder-name.sh' that can be
+used to create a zipfile from a folder name, while also removing backup
+files produced by emacs from the file tree before the zip operation
+runs.
+```
+unzip jacop.zip
+unzip jacop-data.zip
+<<< modify resources >>>
+./build-zip-from-folder-name.sh jacop
+./build-zip-from-folder-name.sh jacop-data
+rm -rf jacop jacop-data
+```
+There are several caching mechanisms in play to speed up building of
+projects. In order to redeploy updated benchmark resources such as
+'resources/jacop.zip' and 'resources/jacop-data.zip', run:
+```
+rm -rf build/jacop projects/jacop
+./extract-resources.py
+```
+Thereafter, jacop builds should be based on the updated version.
+
+## Step-by-step
+Using JaCoP and 'resources/{jacop.zip,jacop-data.zip}' as an example:
+1. cd into the resources folder
+2. Unzip 'jacop-data.zip'
+3. Add new challenges or other workloads to the data file tree.
+   See NOTICE.txt inside the data archive for where to find
+   additional challenges online.
+4. Unzip 'jacop.zip'
+5. Add new workloads to 'jacop.cnf' and copy checksums for stdout and
+   stderr from one of the existing workloads.
+6. Use 'build-zip-from-folder-name.sh' to rebuild both archives
+7. Redeploy and run all new workloads and read off the correct
+   checksums from the harness output. Run with the --preserve
+   flag enabled and validate output in 'scratch/{stderr,stdout}.log'.
+8. Update 'jacop.cnf' accordingly and rebuild the archive again
+9. When done with all modifications, remove folders created from
+   unpacking the archives and commit the updated zip files.
+
 # Troubleshooting
 ## Classpath issues (relative paths in Class-Path attribute)
 When using relative paths in the manifest Class-Path attribute, paths are
