@@ -59,7 +59,7 @@ def download_bm_data(name):
     return Path(dst)
 
 resources = {
-    'jacop.zip'      : 'e54d1cb6ff9cea9b324a6d44fa2eb940',
+    'jacop.zip'      : 'bbf8325e7236c9d36da2f19e00971da9',
     'jacop-data.zip' : '94c65777236e5720f7bf75ac8f1cb32d'
 }
 
