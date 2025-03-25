@@ -54,7 +54,12 @@ def resolve_classpath(coord, confs = ["default"]):
                 '--confs',
                 ",".join(confs)
             ])
-            subprocess.run(cmd, shell = True, cwd = DAIVY_HOME)
+            subprocess.run(
+                cmd,
+                shell      = True,
+                executable = '/bin/bash',
+                cwd        = DAIVY_HOME
+            )
 
             with open(classpath_file.name, 'r') as cpf:
                 classpath.extend(cpf.readlines())
@@ -110,7 +115,11 @@ def _main():
         "-jar",
         junit_jar,
     ]) + " " + " ".join(junit_options)
-    subprocess.run(cmd, shell = True)
+    subprocess.run(
+        cmd,
+        shell      = True,
+        executable = '/bin/bash'
+    )
 
     # Generate report using jacococli.
 
@@ -127,7 +136,11 @@ def _main():
         "--classfiles",
         "target/classes",
     ])
-    subprocess.run(cmd_jacoco_cli, shell = True)
+    subprocess.run(
+        cmd_jacoco_cli,
+        shell      = True,
+        executable = '/bin/bash'
+    )
 
 if __name__ == '__main__':
     _main()

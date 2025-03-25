@@ -31,7 +31,12 @@ def javac_fn(options_file, sources_file):
         "@" + sources_file
     ])
     print("Command", cmd)
-    subprocess.run(cmd, shell = True, check = True)
+    subprocess.run(
+        cmd,
+        shell      = True,
+        executable = '/bin/bash',
+        check      = True
+    )
 
 def compile(options, source_sets):
     with tempfile.NamedTemporaryFile(delete_on_close=False) as options_file:

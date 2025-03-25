@@ -315,7 +315,11 @@ class Cache:
                 id.mod,
                 id.rev
             ])
-            subprocess.run(cmd, shell = True)
+            subprocess.run(
+                cmd,
+                shell      = True,
+                executable = '/bin/bash'
+            )
         return ivy_xml
 
     def location(self, id):
@@ -361,7 +365,11 @@ class Cache:
                 "-confs",
                 " ".join(confs)
             ])
-            subprocess.run(cmd, shell = True)
+            subprocess.run(
+                cmd,
+                shell      = True,
+                executable = '/bin/bash'
+            )
 
             with open(fp.name, 'r') as f:
                 lines = f.readlines()

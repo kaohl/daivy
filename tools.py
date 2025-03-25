@@ -24,7 +24,12 @@ def javacc(rel_cwd_path, options_map, inputfile_list, verbose, javacc_jar, comma
     cmd = " ".join(parts + options_list + inputfile_list)
     if verbose:
         print("[javacc {}]".format(command), cmd)
-    subprocess.run(cmd, shell = True, cwd=rel_cwd_path)
+    subprocess.run(
+        cmd,
+        shell      = True,
+        executable = '/bin/bash',
+        cwd        = rel_cwd_path
+    )
 
 def javacc_jjtree_7_0_12(rel_cwd_path, options_map, inputfile_list, verbose = False):
     javacc(
@@ -183,7 +188,11 @@ def fetch(url, file, md5 = None, cache = Path('downloads')):
             '--output-document=' + str(file),
             url
         ])
-        subprocess.run(cmd, shell = True)
+        subprocess.run(
+            cmd,
+            shell      = True,
+            executable = '/bin/bash'
+        )
     else:
         print("Fetching", file.parts[-1], "from", file)
 
