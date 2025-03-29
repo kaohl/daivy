@@ -140,6 +140,8 @@ class Module:
         self._cache = cache
 
     def load_xml(self):
+        if not self._cache is None:
+            self._cache.resolve_ivy_xml(self.id)
         return self._xml_loader.load_xml()
 
     # Resolve dependencies for specified configurations using ivy.

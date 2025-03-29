@@ -393,7 +393,7 @@ if __name__ == '__main__':
     build_order = ivy.cache().compute_build_order(
         ivy.ID.from_coord(args.project),
         verbose = args.verbose,
-        depth_limit = 4
+        depth_limit = 6
     )
 
     if args.verbose:

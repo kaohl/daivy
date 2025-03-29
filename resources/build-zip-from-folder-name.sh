@@ -15,7 +15,8 @@ if [ ! -d "$1" ]; then
 fi
 
 rm     "$1.zip"
-zip -r "$1.zip" "$1"
-zip -d "$1.zip" "*~"
-md5sum "$1.zip"
-
+cd     "$1"
+zip -r ../"$1.zip" *
+zip -d ../"$1.zip" "*~"
+md5sum ../"$1.zip"
+cd     -

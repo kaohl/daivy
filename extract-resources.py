@@ -60,7 +60,7 @@ def download_bm_data(name):
 
 resources = {
     'jacop.zip'      : 'bbf8325e7236c9d36da2f19e00971da9',
-    'jacop-data.zip' : '94c65777236e5720f7bf75ac8f1cb32d'
+    'jacop-data.zip' : 'eaf1bc710c37feeed09cebe06e5137b1'
 }
 
 def unpack_resource(file, dst):
