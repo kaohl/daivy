@@ -74,8 +74,8 @@ def extract_lib_batik():
     for mod in mods:
         module_root = root / 'batik-1.16' / mod
         module_src  = module_root / 'src'
-        module_id   = ivy.ID('org.apache.xmlgraphics', mod, '1.16')
-        module      = ivy_cache.resolve(module_id)
+        #module_id   = ivy.ID('org.apache.xmlgraphics', mod, '1.16')
+        #module      = ivy_cache.resolve(module_id)
 
         # TODO: Consider this...
         #for dep_xml in module.load_xml().findall('.//dependency'):
