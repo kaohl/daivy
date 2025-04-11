@@ -11,5 +11,9 @@ if [ ! -d dacapobench ]; then
     cd -
 fi
 
+if [ ! -d context ]; then
+    mkdir context
+fi
+
 ./extract-resources.py
 
