@@ -73,10 +73,10 @@
       and recursively build all transitive dependencies
 
 # Refactoring
-- [ ] Generate eclipse configuration for refactoring framework
-  - [ ] Extract source archives into workspace assets
-  - [ ] Extract binary archives into workspace assets
-  - [ ] Generate workspace configuration file
+- [x] Generate eclipse configuration for refactoring framework
+  - [x] Extract source archives into workspace assets
+  - [x] Extract binary archives into workspace assets
+  - [x] Generate workspace configuration file
   * For refactoring, we can use binary dependencies
 
 # Batik 1.16
