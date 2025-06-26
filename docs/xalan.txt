@@ -1,0 +1,62 @@
+
+Build parameters in manifest but we are generating our own anyway.
+
+build/xalan-j_2_7_2/src/MANIFEST.MF
+- Created-By: @java.version@ (@java.vendor@)
+- Main-Class: org.apache.xalan.xslt.Process
+- Class-Path: xercesImpl.jar xml-apis.jar serializer.jar
+- ...
+Name: ...
+- Implementation-Version: @impl.version@
+
+The following jar files are injected into
+the xalan build tree (see lib/ in xalan
+source tree):
+
+Name: java_cup/runtime/
+Specification-Version: 0.10k
+=> lib/runtime.jar
+
+Name: org/apache/bcel/
+Specification-Version: 5.0 rc1
+=> lib/BCEL.jar
+
+Name: org/apache/regexp/
+Specification-Version: 1.2
+=> lib/regexp.jar
+
+Based on DaCapo xalan benchmark build we can compile
+xalan against xerces-2.8.0. However, mvnrepository
+says that the dependency is 2.9.1...
+
+Looking at https://mvnrepository.com/artifact/xalan/xalan/2.7.2
+we have the following dependency tree:
+
+Xalan 2.7.2 (xalan:xalan:2.7.2)
+- compile:
+  - xalan:serializer:2.7.2
+  - xerces:xercesImpl:2.9.1 (optional)
+
+xalan:serializer:2.7.2
+- compile:
+  - xerces:xercesImpl:2.9.1 (optional)
+  - xml-apis:xml-apis:1.3.04
+
+xml-apis:xml-apis:1.3.04
+- compile: None
+
+xerces:xercesImpl:2.9.1
+- compile:
+  - xml-apis:xml-apis:1.3.04
+  - xml-resolver:xml-resolver:1.2 (optional)
+
+xml-resolver:xml-resolver:1.2
+- compile: None
+
+
+NOTE
+- Can't find sources for BECL-5.0-rc1 (unless it is same as 5.0 (see github))
+- Can't find binary dependencies via ivy for BCEL, regexp, java_cup runtime
+Will have to use what is provided in the source distribution for now.
+Merge jar files or inject lib/*.jar on classpaths.
+

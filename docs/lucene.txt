@@ -1,0 +1,88 @@
+# Lucene 9.10.0
+
+Download url
+  url = https://archive.apache.org/dist/lucene/java/9.10.0/lucene-9.10.0-src.tgz
+  md5 = 1d8b8bcc374c1aeb77de1da7393352cc
+
+# Find all files below java (need to filter)
+cd build/lucene-9.10.0/lucene/core/src;
+find java -type f
+
+# Compile core (Warning there are one or more jflex files in there...)
+cd build/lucene-9.10.0/lucene/core/src;
+/usr/lib/jvm/java-11-openjdk/bin/javac -d dist `find java -type f -name "*.java"`
+
+cd build/lucene-9.10.0/lucene/core/src;
+find java -type f -name "*.jflex"
+=> java/org/apache/lucene/analysis/standard/StandardTokenizerImpl.jflex
+
+cd build/lucene-9.10.0/lucene/analysis/common/src;
+mkdir dist; usr/lib/jvm/java-11-openjdk/bin/javac -d dist -classpath ../../../core/src/dist --module-path ../../../core/src/dist `find java -type f -name "*.java"`
+
+lucene/core            (https://mvnrepository.com/artifact/org.apache.lucene/lucene-core/9.10.0)
+  - compile: NONE
+  - runtime: NONE
+lucene/queryparser
+  - compile: core, queries, sandbox
+  - runtime:
+lucene/demo            (https://mvnrepository.com/artifact/org.apache.lucene/lucene-demo/9.10.0)
+  - compile: core, facet, queries, analysis-common, queryparser, expressions
+  - runtime: 
+lucene/backward-codecs (https://mvnrepository.com/artifact/org.apache.lucene/lucene-backward-codecs/9.10.0)
+  - compile: core
+  - runtime: 
+
+lucene/sandbox
+  - compile: core, queries
+  - runtime: 
+lucene/faucet
+  - compile: core
+  - runtime:
+lucene/queries
+  - compile: core
+  - runtime:
+lucene/analysis-common
+  - compile: core
+  - runtime:
+lucene/expressions
+  - compile: core
+  - runtime: codecs
+lucene/codecs
+  - compile: NONE
+  - runtime: core
+
+
+# Excerpts from dacapo build files:
+
+<target name="build" depends="make-exe">
+        <exec executable="${lib-build-top}/gradlew" dir="${lib-build-top}">
+            <env key="JAVA_HOME" value="${jdk.11.home}"/>
+            <arg value=":lucene:core:jar"/>
+            <arg value=":lucene:queryparser:jar"/>
+            <arg value=":lucene:demo:jar"/>
+            <arg value=":lucene:backward-codecs:jar"/>
+        </exec>
+    </target>
+
+<target name="jar">
+        <copy todir="${lib-jars}">
+            <fileset dir="${lib-build-top}/lucene/core/build/libs">
+                <include name="lucene-core-*.jar"/>
+            </fileset>
+        </copy>
+        <copy todir="${lib-jars}">
+            <fileset dir="${lib-build-top}/lucene/demo/build/libs">
+                <include name="lucene-demo-*.jar"/>
+            </fileset>
+        </copy>
+        <copy todir="${lib-jars}">
+            <fileset dir="${lib-build-top}/lucene/queryparser/build/libs">
+                <include name="lucene-queryparser-*.jar"/>
+            </fileset>
+        </copy>
+        <copy todir="${lib-jars}">
+            <fileset dir="${lib-build-top}/lucene/backward-codecs/build/libs">
+                <include name="lucene-backward-codecs-*.jar"/>
+            </fileset>
+        </copy>
+    </target>

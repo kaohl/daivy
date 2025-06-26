@@ -1,0 +1,158 @@
+
+properties
+  dacapo.build.dir = ${basedir}/build
+  dacapo.src.dir   = ${basedir}/src
+
+benchmarks/build.xml (default: dist):
+
+  target: init
+    depends:
+      - check-dependencies
+      - set-build-version-info
+      - create-zip-directory
+      - create-logging-properties
+
+  target: bootstrap (depends: init)
+    - javac ${dacapo.src.dir}                      ${dacapo.build.dir}
+    - copy ${dacapo.src.dir}/META-INF/MANIFEST.MF  ${dacapo.build.dir}
+    - MANIFEST.MF
+      - append Specification-Version
+      - append Implementation-Version
+      - append Add-Exports
+      - append Add-Opens
+    - copy ${basedir}/../LICENSE       ${dacapo.build.dir}
+    - copy ${basedir}/../README.md     ${dacapo.build.dir}
+    - copy ${basedir}/RELEASE_NOTES.md ${dacapo.build.dir}
+    - skip "base document section"
+    - jar ${update} ${dacapo.build.dir} ${dacapo.build.dir}/MANIFEST.MF -> ${build.target-jar}
+
+  target: harness
+    - depends: bytecode-transformer
+
+  property: bcc-dir
+    = ${toolsdir}/analysis/bcc
+
+  target: bytecode-transformer (depends: harness-jar)
+    - mvn install dir=${bcc.dir} JAVA_HOME=${jdk.11.home}
+    - copy ${toolsdir}/analysis/bcc/target/BCCAgent-1.0-SNAPSHOT.jar -> ${build.target-jars}/bccagent.jar
+
+  target: harness-jar (depends: bootstrap)
+    - ant harness/build.xml
+    - jar harness/dist -> ${bcc-dir}/dacapo-harness.jar
+
+  target: dist (depends: harness, bytecode-transformer, compile, create-zip)
+    - Nothing to do
+
+  target: <bm> (depends: init, harness)
+    - <build.bm benchmark="<bm>"/>
+    - <generate-launcher-jars benchmark="<bm>"/>
+
+  macro: generate-launcher-jars
+    - python LauncherGenerator.py <bm> Harness ${build.target-jar} ${build.target-launchers}
+
+
+benchmarks/bms/commons.xml:
+
+  properties
+    bm-files                ${basedir}/bms/${bm-name}
+    bm-build-dir            ${bm-files}/build
+    bm-output-dir           ${bm-files}/dist
+    bm-output-harness-dir   ${bm-files}/dist
+    bm-output-benchmark-dir ${bm-files}/dist/benchmark
+    bm-deps-output-dir      ${bm-files}/deps
+    bm-jars                 ${bm-files}/data/jar/${bm-name}
+    bm-data                 ${bm-files}/data/dat/${bm-name}
+
+    bm-src-dir              ${bm-files}/src
+    bm-src-harness-dir      ${bm-files}/harness/src
+    bm-src-benchmark-dir    ${bm-files}/benchmark
+
+    bm-downloads            ${bm-files}/downloads
+    bm-out-jar              ${build.target-jars}/${bm-name}
+    bm-out-dat              ${build.target-data}/${bm-name}
+
+    bm-dat                  ${bm-out-dat}
+    bm-cnf                  ${bm-output-dir}/META-INF/cnf
+    bm-md5                  ${bm-output-dir}/META-INF/md5
+    bm-yml                  ${bm-output-dir}/META-INF/yml
+
+    harness-claspath        harness/dist/
+
+  target: build (depends: dacapo-harness, benchmark, config, yml, harness)
+
+  target: harness (depends: bm-harness-with, bm-harness-without)
+    - Nothing
+
+  target: bm-harness-without (unless="bm-harness-classpath)
+    - javac
+        srcdir    = ${bm-src-harness-dir}
+        classpath = ${harness-classpath}
+        destdir   = ${bm-output-harness-dir}
+        includes  = "org/dacapo/harness/**"
+
+  target: bm-harness-with (if="bm-harness-classpath)
+    - javac
+        ...
+        classpath = ${harness-classpath}:${bm-harness-classpath}
+        ...
+
+benchmarks/bms/batik/build.xml:
+  import ../commons.xml
+
+  target: data (depends: batik)
+    - antcall "check-source"
+        target-dir =${bm-downloads}
+        target-url =${dacapo.dat.url}
+        target-file=${batik-data.zip}
+    - unzip ${bm-downloads}/batik-data.zip -> ${bm-data}
+
+benchmarks/libs/commons.xml:
+  import ../util.xml
+  import libs.xml
+
+  properties
+    lib-build-dir  libs/${lib-name}/build
+    lib-output-dir libs/${lib-name}/dist
+    lib-jars       ${lib-output-dir}/jar
+    lib-dat        ${lib-output-dir}/dat
+    lib-downloads  libs/${lib-name}/downloads
+    lib-src-dir    libs/${lib-name}/src
+    lib-data       libs/${lib-name}/data
+
+    bm-lib-jars    ${bm-files}/data/jar/lib/${lib-name}
+    bm-lib-data    ${bm-files}/data/dat/lib/${lib-name}
+
+   target: complete
+     - copy ${lib-output-dir}/jar/*.jar ${bm-lib-jars}
+     - copy ${lib-output-dir}/dat/**/*  ${bm-lib-data}
+  
+   target: untar/unzip
+     - mkdir ${lib-build-dir}
+     - untar/unzip ${lib-downloads}/${lib-src}  ${lib-build-dir}
+
+   target: patch
+     - patch libs/${lib-name}/${lib-name}.patch ${lib-build-dir}
+
+
+benchmarks/libs/batik/build.xml:
+  import ../commons.xml
+
+  properties
+    lib-name    batik
+    lib-version ${batik-version}
+    lib-url     ...
+    lib-src     ...
+
+    lib-build-top ${lib-build-dir}/batik-${lib-version}
+
+  target: build
+    - ant ${lib-build-top} all-jar
+      - This command builds batik-all from its source distribution.
+    - copy ${lib-build-top}/batik-${lib-version}/lib/batik-all-${lib-version}.jar -> ${lib-jars}
+    - copy ${lib-build-top}/lib/xml-apis-ext-1.3.04.jar -> ${lib-jars}
+    - copy ${lib-build-top}/lib/serialiser-2.7.2.jar    -> ${lib-jars}
+    - copy ${lib-build-top}/lib/xmlgraphics-commons-2.7 -> ${lib-jars}
+
+  target: jar
+    - copy ${lib-jars} -> ${bm-jars}
+

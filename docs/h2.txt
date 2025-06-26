@@ -1,0 +1,107 @@
+# Benchmark
+
+Dependencies
+  - junit
+  - h2
+  - derby   (libs/derby/build.xml => "derby library required for h2 testing")
+            Can we skip derby? Also, not the same version as h2 is using for
+            its tests... (I mean, it is a binary dependency so...)
+
+<target name="bm-build" depends="junit,h2,derby">
+        <javac srcdir="${bm-src-dir}"  destdir="${bm-build-dir}"
+                sourcepath="${bm-src-dir}"
+                source="1.8">
+            <classpath>
+                <pathelement location="${harness-classpath}"/>
+                <pathelement location="${derbytesting-jar}"/>
+                <pathelement location="${h2-jar}"/>
+                <pathelement location="${junit-jar}"/>
+            </classpath>
+        </javac>
+        <jar destfile="${bm-jars}/dacapo-${bm-name}.jar">
+            <fileset dir="${bm-build-dir}">
+                <include name="org/dacapo/h2/**"/>
+            </fileset>
+        </jar>
+    </target>
+
+
+# Derby 10.15.2.0
+
+libs.xml:
+name="derby-version" value="10.15.2.0"
+name="derby-jar" value="${lib-base}/derby/dist/jar/derby.jar"
+name="derbyclient-jar" value="${lib-base}/derby/dist/jar/derbyclient.jar"
+name="derbynet-jar" value="${lib-base}/derby/dist/jar/derbynet.jar"
+name="derbytools-jar" value="${lib-base}/derby/dist/jar/derbytools.jar"
+name="derbytesting-jar" value="${lib-base}/derby/dist/jar/derbyTesting.jar"
+<target name="derby">
+    <ant antfile="${lib-base}/derby/build.xml"/>
+</target>
+
+
+# h2 2.2.220
+
+libs/h2/build.xml:
+name="lib-name" value="h2"
+name="lib-version" value="${h2-version}"
+name="lib-url" value="${maven.url}/com/h2database/${lib-name}/${lib-version}"
+name="lib-src" value="h2-${lib-version}.jar"
+
+Source distribution:
+  - https://github.com/h2database/h2database/releases
+  - https://github.com/h2database/h2database/archive/refs/tags/version-2.2.220.zip
+  - https://github.com/h2database/h2database/archive/refs/tags/version-2.2.220.tar.gz
+
+Build script here:
+  *** Looking at doc-comment for download()
+      - These are only compile dependencies.
+        The database can be used without any dependencies.
+
+  - src/tools/org/h2/build/Build.java
+    - compile:
+      - javax.servlet-api-       JAVAX_SERVLET_VERSION=4.0.1    .jar
+      - jakarta.servlet-api-     JAKARTA_SERVLET_VERSION=5.0.0  .jar
+      - lucene-core-             LUCENE_VERSION=8.5.2           ...
+      - lucene-analyzers-common- LUCENE_VERSION=8.5.2
+      - lucene-queryparser-      LUCENE_VERSION=8.5.2
+      - slf4j-api-               SLF4J_VERSION=1.7.30
+      - org.osgi.core-           OSGI_VERSION=5.0.0
+      - org.osgi.service.jdbc-   OSGI_JDBC_VERSION=1.1.0
+      - jts-core-                JTS_VERSION=1.17.0
+      - asm-                     ASM_VERSION=9.4
+      - ${java.home}/../lib/tools.jar
+
+    - javac(
+        -Xlint:unchecked -d dist -sourcepath src/main -classpath classpath
+        files("src/main")
+      )
+    - javac(
+        -d dist/META-INF/versions/9
+        files("src/java9/src/...")
+      )
+    - javac(
+        -d dist/META-INF/versions/10
+        files("src/java10/src/...")
+      )
+    - copy(
+        dst = "dist",
+        files("src/main/META-INF/native-image"),
+        files("src/main/META-INF/services"),
+      )
+
+libs.xml:
+name="h2-version" value="2.2.220"
+name="h2-jar" value="${lib-base}/h2/dist/jar/h2-${h2-version}.jar"
+<target name="h2">
+    <ant antfile="${lib-base}/h2/build.xml"/>
+</target>
+
+
+# JUnit 4.12 (see description in libs/junit/build.xml)
+
+libs.xml:
+name="junit-jar" value="${lib-base}/junit/dist/jar/junit-4.12.jar"
+<target name="junit">
+    <ant antfile="${lib-base}/junit/build.xml"/>
+</target>

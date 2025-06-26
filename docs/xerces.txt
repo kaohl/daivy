@@ -1,0 +1,26 @@
+
+# Xerces2 J
+https://github.com/apache/xerces2-j
+https://mvnrepository.com/artifact/xerces/xercesImpl
+
+## Build from source
+https://github.com/apache/xerces2-j/archive/refs/tags/Xerces-J_2_9_1.zip
+https://github.com/apache/xerces2-j/archive/refs/tags/Xerces-J_2_9_1.tar.gz
+
+NOTE
+xerces depends on "xml-commons-external" and "xml-commons-resolver"
+See build/xerces.../{build.xml,tools/}
+
+Tried to find source code for these so we can add to framework.
+
+Only the SVN repo seems to have tags for different
+versions of xml-commons-external and xml-commons-resolver...
+
+https://xerces.apache.org/xml-commons/
+https://svn.apache.org/repos/asf/xerces/xml-commons/tags/
+
+https://github.com/apache/xerces-j/tree/xml-commons-resolver
+https://github.com/apache/xerces-j/tree/xml-commons-external
+
+https://github.com/apache/xerces-j
+https://github.com/apache/xerces2-j

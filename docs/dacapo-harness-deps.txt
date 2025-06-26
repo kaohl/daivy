@@ -1,0 +1,16 @@
+java -jar tools/ivy-2.5.2.jar -cache ivy-cache -dependency javax.xml.bind jaxb-api 2.3.0
+java -jar tools/ivy-2.5.2.jar -cache ivy-cache -dependency com.sun.activation javax.activation 1.2.0
+java -jar tools/ivy-2.5.2.jar -cache ivy-cache -dependency com.sun.xml.bind jaxb-core 2.3.0
+java -jar tools/ivy-2.5.2.jar -cache ivy-cache -dependency com.sun.xml.bind jaxb-impl 2.3.0
+java -jar tools/ivy-2.5.2.jar -cache ivy-cache -dependency org.hdrhistogram HdrHistogram 2.1.12
+java -jar tools/ivy-2.5.2.jar -cache ivy-cache -dependency com.google.code.java-allocation-instrumenter java-allocation-instrumenter 3.3.4
+java -jar tools/ivy-2.5.2.jar -cache ivy-cache -dependency commons-cli commons-cli 1.5.0
+
+ivy.ID('javax.xml.bind', 'jaxb-api', '2.3.0')
+ivy.ID('com.sun.activation','javax.activation','1.2.0')
+ivy.ID('com.sun.xml.bind','jaxb-core','2.3.0')
+ivy.ID('com.sun.xml.bind','jaxb-impl','2.3.0')
+ivy.ID('org.hdrhistogram','HdrHistogram','2.1.12')
+ivy.ID('com.google.code.java-allocation-instrumenter','java-allocation-instrumenter','3.3.4')
+ivy.ID('commons-cli','commons-cli','1.5.0')
+

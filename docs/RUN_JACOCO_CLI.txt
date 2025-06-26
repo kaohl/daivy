@@ -1,0 +1,2 @@
+java -jar tools/ivy-2.5.2.jar -cache ivy-cache -dependency org.jacoco org.jacoco.cli 0.8.12 -cachepath tmp_cachepath.txt
+java -cp `cat tmp_cachepath.txt` org.jacoco.cli.internal.Main
