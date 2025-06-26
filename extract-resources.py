@@ -19,6 +19,7 @@ import extract_batik
 import extract_lucene
 import extract_xalan
 import extract_jacop
+#import extract_xerces # TODO: Some small amount of work has gone into adding xerces, so keeping for future work.
 
 bm_data_files = {
     'batik' : (
@@ -265,6 +266,9 @@ def extract_resources():
 
     extract_bm_jacop()
     extract_jacop.extract_lib_jacop()
+
+    # TODO: Future work.
+    #extract_xerces.extract_lib_xerces()
 
 if __name__ == '__main__':
     extract_resources()
