@@ -3,6 +3,12 @@ This is one of three repositories developed for my [master's thesis](https://lup
 
 See also the [evaluation framework](https://github.com/kaohl/masters-thesis-software-evaluation) and the [refactoring framework](https://github.com/kaohl/alfine-refactoring).
 
+> [!NOTE]
+> Regarding citation: Please reference the thesis, which provides context for this work, and links to all repositories.
+
+> [!NOTE]
+> Please fork the repository for future work.
+
 # Daivy
 A Java build framework supporting source and binary transformations of projects and dependencies.
 
