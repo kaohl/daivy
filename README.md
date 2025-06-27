@@ -10,7 +10,7 @@ See also the [evaluation framework](https://github.com/kaohl/masters-thesis-soft
 > Please fork the repository for future work.
 
 # Daivy
-A Java build framework supporting source and binary transformations of projects and dependencies.
+A Java build framework supporting source transformations of selected applications and dependencies.
 
 How the framework is intended to be used is best demonstrated by the Java performance evaluation framework linked above, where it is used to build a set of benchmarks and a selection of dependencies from source to study performance impact of refactoring.
 
